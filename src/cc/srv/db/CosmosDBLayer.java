@@ -28,8 +28,9 @@ public class CosmosDBLayer {
 	private static CosmosDBLayer instance;
 
 	// Configuration - to be moved to EnvConfig or similar
-	private static final String CONNECTION_URL = "https://legoproject-75291.documents.azure.com:443/";
-    private static final String DB_KEY = "KaibSLbABsKn9XzPb2cNg8ESoBH9PbYHKyMQlOiQmmwNtkAz7dmjjnabkU572RtJrSvCnaRDwuQkACDbzx5G4w==";
+	// I remove it because keys should be push in git, I will use EnvConfig
+	private static final String CONNECTION_URL = "DB URL";
+    private static final String DB_KEY = "KEY";
     private static final String DB_NAME = "legoDB";
 
 
