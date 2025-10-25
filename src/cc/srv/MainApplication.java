@@ -5,6 +5,7 @@ import java.util.Set;
 import cc.srv.data.UserResource;
 import cc.srv.data.AuctionResource;
 import cc.srv.data.LegoSetResource;
+import cc.srv.data.MediaResource;   
 
 import jakarta.ws.rs.core.Application;
 
@@ -17,7 +18,8 @@ public class MainApplication extends Application {
         resources.add(UserResource.class);
         resources.add(AuctionResource.class);
         resources.add(LegoSetResource.class);
-        //singletons.add(new MediaResource());
+        singletons.add(new MediaResource());
+        
     }
 
     @Override

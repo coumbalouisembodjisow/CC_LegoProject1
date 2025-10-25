@@ -60,6 +60,18 @@
             <artifactId>azure-cosmos</artifactId>
             <version>4.74.0</version>
         </dependency>
+        <dependency>
+            <groupId>com.azure</groupId>
+            <artifactId>azure-storage-blob</artifactId>
+            <version>12.31.2</version>
+        </dependency>
+        <!-- JSON processing -->
+        <dependency>
+            <groupId>org.glassfish.jersey.media</groupId>
+            <artifactId>jersey-media-json-binding</artifactId>
+            <version>3.1.2</version>
+        </dependency>
+
     </dependencies>  
     <build> 
         <sourceDirectory>src</sourceDirectory>  

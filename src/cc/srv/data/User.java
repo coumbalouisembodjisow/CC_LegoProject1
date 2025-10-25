@@ -8,7 +8,7 @@ public class User {
     private String name;
     private String password;
     private List<String> ownedLegoSets;
-    private String photoUrl;
+    private String photoMediaId; // ID for the user's photo in Azure Blob Storage
 
     // Getters and Setters
 
@@ -52,11 +52,11 @@ public class User {
         this.ownedLegoSets = ownedLegoSets;
     }
 
-    public String getPhotoUrl() {
-        return photoUrl;
+    public String getPhotoMediaId() {
+        return photoMediaId;
     }
 
-    public void setPhotoUrl(String photoUrl) {
-        this.photoUrl = photoUrl;
+    public void setPhotoMediaId(String photoMediaId) {
+        this.photoMediaId = photoMediaId;
     }
 }

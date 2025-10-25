@@ -1,6 +1,6 @@
 package cc.srv.data;
 
-import java.util.Date;
+//import java.util.Date;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -9,12 +9,12 @@ public class LegoSet {
     private String name;
     private String codeNumber;  
     private String description;
-    private List<String> photoUrls;  
+    private List<String> photoMediaIds; // IDs for photos stored in Azure Blob Storage
 
     
     // Constructeurs
     public LegoSet() {
-        this.photoUrls = new ArrayList<>();
+        this.photoMediaIds = new ArrayList<>();
     }
     
     public LegoSet(String id, String name, String codeNumber, String description) {
@@ -38,15 +38,15 @@ public class LegoSet {
     public String getDescription() { return description; }
     public void setDescription(String description) { this.description = description; }
     
-    public List<String> getPhotoUrls() { return photoUrls; }
-    public void setPhotoUrls(List<String> photoUrls) { this.photoUrls = photoUrls; }
+    public List<String> getPhotoMediaIds() { return photoMediaIds; }
+    public void setPhotoUrls(List<String> photoMediaIds) { this.photoMediaIds = photoMediaIds; }
     
 
-    //  add a photo URL to the list
-    public void addPhotoUrl(String photoUrl) {
-        if (this.photoUrls == null) {
-            this.photoUrls = new ArrayList<>();
+    //  add a photo Media Id to the list
+    public void addPhotoMediaId(String photoMediaId) {
+        if (this.photoMediaIds == null) {
+            this.photoMediaIds = new ArrayList<>();
         }
-        this.photoUrls.add(photoUrl);
+        this.photoMediaIds.add(photoMediaId );
     }
 }

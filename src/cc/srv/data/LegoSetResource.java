@@ -7,7 +7,7 @@ import cc.srv.db.CosmosDBLayer;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
-import java.util.Arrays;
+//import java.util.Arrays;
 
 @Path("/legoset")
 public class LegoSetResource {
@@ -33,7 +33,7 @@ public class LegoSetResource {
             }
             
             // check for at least one photo
-            if (legoSet.getPhotoUrls() == null || legoSet.getPhotoUrls().isEmpty()) {
+            if (legoSet.getPhotoMediaIds() == null || legoSet.getPhotoMediaIds().isEmpty()) {
                 return Response.status(400).entity("At least one photo is required").build();
             }
 
@@ -104,7 +104,7 @@ public class LegoSetResource {
                 return Response.status(400).entity("ID in URL does not match ID in body").build();
             }
 
-            if (legoSet.getPhotoUrls() == null || legoSet.getPhotoUrls().isEmpty()) {
+            if (legoSet.getPhotoMediaIds() == null || legoSet.getPhotoMediaIds().isEmpty()) {
                 return Response.status(400).entity("At least one photo is required").build();
             }
 
