@@ -1,5 +1,6 @@
 package cc.srv.data;
 
+import cc.srv.cache.CacheService;
 import cc.srv.storage.AzureBlobStorage;
 import com.azure.storage.blob.BlobClient;
 import com.azure.storage.blob.BlobContainerClient;
@@ -7,6 +8,8 @@ import com.azure.storage.blob.models.BlobHttpHeaders;
 import jakarta.ws.rs.*;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
+
+import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.util.*;
 import java.util.logging.Logger;
@@ -33,42 +36,62 @@ public class MediaResource {
     /**
      * Post a new media file to Azure Blob Storage
      */
-    @POST
-    @Path("/")
-    @Consumes(MediaType.APPLICATION_OCTET_STREAM)
-    @Produces(MediaType.APPLICATION_JSON)
-    public String upload(
-            @HeaderParam("Content-Type") String contentType, 
-            @HeaderParam("X-File-Name") String fileName,
-            byte[] contents) {
+@POST
+@Path("/")
+@Consumes({"image/jpeg", "image/png", "application/octet-stream"}) 
+@Produces(MediaType.APPLICATION_JSON)
+public String upload(
+        @HeaderParam("Content-Type") String contentType, 
+        byte[] contents) {
+    
+    try {
+        logger.info("Upload received - ContentType: " + contentType + ", Size: " + contents.length);
+
+        // Générer un ID unique
+        String mediaId = UUID.randomUUID().toString();
         
-        try {
-            logger.info("Upload to Azure - Size: " + contents.length);
-            
-            // Générer un ID unique
-            String mediaId = UUID.randomUUID().toString() + getFileExtension(fileName);
+        // Déterminer l'extension basée sur le Content-Type
+        String extension = getExtensionFromContentType(contentType);
+        mediaId += extension;
 
-            // Upload vers Azure Blob Storage
-            BlobClient blobClient = blobContainerClient.getBlobClient(mediaId);
-            
-            String actualContentType = (contentType != null) ? contentType : determineContentType(fileName);
-            BlobHttpHeaders headers = new BlobHttpHeaders().setContentType(actualContentType);
-            
-            blobClient.upload(new java.io.ByteArrayInputStream(contents), contents.length, true);
-            blobClient.setHttpHeaders(headers);
+        // Upload vers Azure Blob Storage
+        BlobClient blobClient = blobContainerClient.getBlobClient(mediaId);
+        
+        BlobHttpHeaders headers = new BlobHttpHeaders().setContentType(contentType);
+        
+        blobClient.upload(new ByteArrayInputStream(contents), contents.length, true);
+        blobClient.setHttpHeaders(headers);
 
-            // Réponse JSON simple (identique à votre version)
-            return "{\"id\": \"" + mediaId + "\", " +
-                   "\"fileName\": \"" + (fileName != null ? fileName : "unknown") + "\", " +
-                   "\"fileSize\": " + contents.length + ", " +
-                   "\"contentType\": \"" + actualContentType + "\"}";
-            
-        } catch (Exception e) {
-            logger.severe("Upload error: " + e.getMessage());
-            return "{\"error\": \"Upload failed: " + e.getMessage() + "\"}";
-        }
+        logger.info("File uploaded to Azure: " + mediaId);
+
+        // Réponse JSON (format du prof)
+        return "{\"id\": \"" + mediaId + "\"}";
+        
+    } catch (Exception e) {
+        logger.severe("Upload error: " + e.getMessage());
+        return "{\"error\": \"Upload failed: " + e.getMessage() + "\"}";
     }
+}
 
+/**
+ * Détermine l'extension basée sur le Content-Type
+ */
+private String getExtensionFromContentType(String contentType) {
+    if (contentType == null) return "";
+    
+    switch (contentType) {
+        case "image/jpeg":
+            return ".jpeg";
+        case "image/png":
+            return ".png";
+        case "image/gif":
+            return ".gif";
+        case "image/jpg":
+            return ".jpg";
+        default:
+            return ".bin";
+    }
+}
     /**
      * Return the contents of a media file from Azure Blob Storage
      */
@@ -77,6 +100,22 @@ public class MediaResource {
     public Response download(@PathParam("id") String id) {
         try {
             logger.info("Download from Azure: " + id);
+            boolean cacheEnabled = Boolean.parseBoolean(System.getenv("CACHE_ENABLED"));
+        
+        // cache check
+        if (cacheEnabled) {
+            Map<String, String> cachedMedia = CacheService.getCachedMedia(id);
+            if (cachedMedia != null) {
+                // get content and contentType from cache
+                byte[] content = Base64.getDecoder().decode(cachedMedia.get("content"));
+                String contentType = cachedMedia.get("contentType");
+                
+                return Response.ok(content)
+                        .type(contentType)
+                        .header("Content-Disposition", "inline; filename=\"" + id + "\"")
+                        .build();
+            }
+        }
             
             BlobClient blobClient = blobContainerClient.getBlobClient(id);
             
@@ -93,7 +132,13 @@ public class MediaResource {
             if (contentType == null) {
                 contentType = determineContentType(id);
             }
-            
+            // cache it
+            if (cacheEnabled) {
+                CacheService.cacheMedia(id, contents, contentType);
+                logger.info("Media " + id + " served from Azure and CACHED");
+            } else {
+                logger.info(" Media " + id + " served from Azure (no cache)");
+            }
             return Response.ok(contents)
                     .type(contentType)
                     .header("Content-Disposition", "inline; filename=\"" + id + "\"")
@@ -143,12 +188,7 @@ public class MediaResource {
         }
     }
 
-    private String getFileExtension(String fileName) {
-        if (fileName == null || !fileName.contains(".")) {
-            return "";
-        }
-        return fileName.substring(fileName.lastIndexOf("."));
-    }
+   
 
     private String determineContentType(String fileName) {
         if (fileName == null) return "application/octet-stream";

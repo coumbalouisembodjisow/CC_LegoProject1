@@ -1,0 +1,6 @@
+config:
+  target: "https://legobackendapp.azurewebsites.net"
+  phases:
+    - duration: 30
+      arrivalRate: 1
+  

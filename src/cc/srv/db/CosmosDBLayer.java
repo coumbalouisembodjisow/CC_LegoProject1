@@ -1,5 +1,10 @@
 package cc.srv.db;
 
+import java.util.ArrayList;
+import java.util.Iterator;
+import java.util.List;
+import java.util.logging.Logger;
+
 import com.azure.cosmos.ConsistencyLevel;
 import com.azure.cosmos.CosmosClient;
 import com.azure.cosmos.CosmosClientBuilder;
@@ -15,7 +20,7 @@ import cc.srv.data.User;
 import cc.srv.data.Auction;
 import cc.srv.data.LegoSet;
 import cc.srv.data.Comment;
-import cc.srv.utils.EnvConfig;
+//import cc.srv.utils.EnvConfig;
 
 public class CosmosDBLayer {
 	private CosmosClient client;
@@ -29,8 +34,8 @@ public class CosmosDBLayer {
 
 	// Configuration - to be moved to EnvConfig or similar
 	// I remove it because keys should be push in git, I will use EnvConfig
-	private static final String CONNECTION_URL = "DB URL";
-    private static final String DB_KEY = "KEY";
+	private static final String DB_ENDPOINT = System.getenv("DB_ENDPOINT");
+    private static final String DB_KEY = System.getenv("DB_KEY");
     private static final String DB_NAME = "legoDB";
 
 
@@ -39,7 +44,7 @@ public class CosmosDBLayer {
 			return instance;
 
 		CosmosClient client = new CosmosClientBuilder()
-		         .endpoint(CONNECTION_URL)
+		         .endpoint(DB_ENDPOINT)
 		         .key(DB_KEY)
 		         //.directMode()
 		         .gatewayMode()		
@@ -171,6 +176,42 @@ public class CosmosDBLayer {
         return auctions.deleteItem(id, key, new CosmosItemRequestOptions());
     }
 
+	/**
+ * Get auctions by seller (userId)
+ */
+	public List<Auction> getAuctionsByUser(String userId) {
+		List<Auction> userAuctions = new ArrayList<>();
+		try {
+			String query = "SELECT * FROM c WHERE c.sellerId = '" + userId + "'";
+			Iterator<Auction> iterator = auctions.queryItems(query, new CosmosQueryRequestOptions(), Auction.class).iterator();
+			
+			while (iterator.hasNext()) {
+				userAuctions.add(iterator.next());
+			}
+		} catch (Exception e) {
+			Logger.getLogger(CosmosDBLayer.class.getName()).severe("Error retrieving auctions for user " + userId + ": " + e.getMessage());
+		}
+		return userAuctions;
+	}
+
+	/**
+ * Récupère tous les comments d'un user (version simple)
+ */
+	public List<Comment> getCommentsByUser(String userId) {
+		List<Comment> userComments = new ArrayList<>();
+		try {
+			String query = "SELECT * FROM c WHERE c.userId = '" + userId + "'";
+			Iterator<Comment> iterator =comments.queryItems(query, new CosmosQueryRequestOptions(), Comment.class).iterator();
+			
+			while (iterator.hasNext()) {
+				userComments.add(iterator.next());
+			}
+		} catch (Exception e) {
+			Logger.getLogger(CosmosDBLayer.class.getName()).severe("Error retrieving comments for user " + userId + ": " + e.getMessage());
+		}
+		return userComments;
+	}
+
 	// --------------------- LegoSet methods ------------------- //
     
     public CosmosItemResponse<LegoSet> putLegoSet(LegoSet legoSet) {
@@ -220,6 +261,10 @@ public class CosmosDBLayer {
 		init();
 		return comments.createItem(comment);
 	}
+	public CosmosItemResponse<Comment> updateComment(Comment comment) {
+		init();
+		return comments.upsertItem(comment);
+	}
 	
 	public CosmosPagedIterable<Comment> getCommentsByLegoSetId(String legoSetId) {
 		init();
@@ -236,4 +281,24 @@ public class CosmosDBLayer {
 		client.close();
 	}
 
+
+	 public CosmosContainer getUserContainer() { 
+        init();
+        return users; 
+    }
+    
+    public CosmosContainer getAuctionContainer() { 
+        init();
+        return auctions; 
+    }
+    
+    public CosmosContainer getLegoSetContainer() { 
+        init();
+        return legosets; 
+    }
+    
+    public CosmosContainer getCommentContainer() { 
+        init();
+        return comments; 
+    }
 }

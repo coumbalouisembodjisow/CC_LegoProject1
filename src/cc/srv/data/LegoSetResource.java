@@ -7,7 +7,12 @@ import cc.srv.db.CosmosDBLayer;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
+import java.util.UUID;
+
+import cc.srv.cache.CacheService;
 //import java.util.Arrays;
+
+import com.azure.cosmos.models.CosmosQueryRequestOptions;
 
 @Path("/legoset")
 public class LegoSetResource {
@@ -21,17 +26,14 @@ public class LegoSetResource {
     @Produces(MediaType.APPLICATION_JSON)
     public Response createLegoSet(LegoSet legoSet) {
         try {
-            // requirements validation
+                // Generate an ID if not already provided 
             if (legoSet.getId() == null || legoSet.getId().trim().isEmpty()) {
-                return Response.status(400).entity("LegoSet ID is required").build();
+                legoSet.setId(UUID.randomUUID().toString());  // Generate a new ID for the LegoSet
             }
             if (legoSet.getName() == null || legoSet.getName().trim().isEmpty()) {
                 return Response.status(400).entity("LegoSet name is required").build();
             }
-            if (legoSet.getCodeNumber() == null || legoSet.getCodeNumber().trim().isEmpty()) {
-                return Response.status(400).entity("LegoSet code number is required").build();
-            }
-            
+          
             // check for at least one photo
             if (legoSet.getPhotoMediaIds() == null || legoSet.getPhotoMediaIds().isEmpty()) {
                 return Response.status(400).entity("At least one photo is required").build();
@@ -44,6 +46,14 @@ public class LegoSetResource {
             }
 
             dbLayer.putLegoSet(legoSet);
+            // cache the new LegoSet
+            boolean cacheEnabled = Boolean.parseBoolean(System.getenv("CACHE_ENABLED"));
+            if (cacheEnabled) {
+                CacheService.cacheLegoSet(legoSet);
+                // invalidate most recent added LegoSets cache
+                CacheService.invalidateRecentLegoSets();
+                System.out.println("LegoSet " + legoSet.getId() + " CACHED after creation");
+            }
             return Response.status(201).entity(legoSet).build();
             
         } catch (Exception e) {
@@ -76,10 +86,23 @@ public class LegoSetResource {
     @Produces(MediaType.APPLICATION_JSON)
     public Response getLegoSet(@PathParam("id") String id) {
         try {
+            boolean cacheEnabled = Boolean.parseBoolean(System.getenv("CACHE_ENABLED"));
+            if (cacheEnabled) {
+                // try to get from cache first
+                LegoSet cachedLegoSet = CacheService.getCachedLegoSet(id);
+                if (cachedLegoSet != null) {
+                    System.out.println("LegoSet " + id + " served from CACHE");
+                    return Response.ok(cachedLegoSet).build();}}
+                   
             Iterator<LegoSet> iterator = dbLayer.getLegoSetById(id).iterator();
 
             if (iterator.hasNext()) {
                 LegoSet legoSet = iterator.next();
+                // cache it
+                if (cacheEnabled) {
+                    CacheService.cacheLegoSet(legoSet);
+                    System.out.println("LegoSet " + id + " CACHED after retrieval from DB");
+                }
                 return Response.ok(legoSet).build();
             } else {
                 return Response.status(404).entity("LegoSet not found with ID: " + id).build();
@@ -109,6 +132,14 @@ public class LegoSetResource {
             }
 
             dbLayer.updateLegoSet(legoSet);
+            // update cache
+            boolean cacheEnabled = Boolean.parseBoolean(System.getenv("CACHE_ENABLED"));
+            if (cacheEnabled) {
+                CacheService.cacheLegoSet(legoSet);
+                // invalidate most recent added LegoSets cache
+                CacheService.invalidateRecentLegoSets();
+                System.out.println("LegoSet " + legoSet.getId() + " CACHED after update");
+            }
             return Response.ok(legoSet).build();
             
         } catch (Exception e) {
@@ -151,7 +182,8 @@ public class LegoSetResource {
     public Response createComment(@PathParam("id") String legoSetId, Comment comment) {
         try {
             if (comment.getId() == null || comment.getId().trim().isEmpty()) {
-                return Response.status(400).entity("Comment ID is required").build();
+
+                comment.setId(UUID.randomUUID().toString());  // Generate a new ID for the Comment
             }
             if (comment.getUserId() == null || comment.getUserId().trim().isEmpty()) {
                 return Response.status(400).entity("User ID is required").build();
@@ -204,5 +236,41 @@ public class LegoSetResource {
             return Response.status(500).entity("Error retrieving comments: " + e.getMessage()).build();
         }
     }
+
+@GET
+@Path("/recent")
+@Produces(MediaType.APPLICATION_JSON)
+public Response getRecentLegoSets() {
+    try {
+        // Try to get from cache first
+        boolean cacheEnabled = Boolean.parseBoolean(System.getenv("CACHE_ENABLED"));
+        if (cacheEnabled) {
+            List<LegoSet> cachedRecentSets = CacheService.getCachedRecentLegoSets();
+            if (cachedRecentSets != null) {
+                System.out.println("Recent LegoSets served from CACHE");
+                return Response.ok(cachedRecentSets).build();
+            }
+        }
+        // Requête Cosmos DB pour récupérer directement les 10 plus récents
+        String query = "SELECT TOP 10 * FROM c ORDER BY c.createdAt DESC";
+        Iterator<LegoSet> recentLegoSets = dbLayer.getLegoSetContainer().queryItems(query, new CosmosQueryRequestOptions(), LegoSet.class).iterator();
+        
+        List<LegoSet> recentSets = new ArrayList<>();
+        while (recentLegoSets.hasNext()) {
+            recentSets.add(recentLegoSets.next());
+        }
+        // Cache the recent LegoSets
+        if (cacheEnabled) {
+            CacheService.cacheRecentLegoSets(recentSets);
+            System.out.println("Recent LegoSets CACHED after retrieval from DB");
+        }
+
+        return Response.ok(recentSets).build();
+        
+    } catch (Exception e) {
+        return Response.status(500).entity("Error retrieving recent LegoSets: " + e.getMessage()).build();
+    }
+}
+    
 
 }

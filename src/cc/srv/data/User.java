@@ -4,11 +4,10 @@ import java.util.List;
 
 public class User {
     private String id;
-    private String nickname;
     private String name;
     private String password;
-    private List<String> ownedLegoSets;
     private String photoMediaId; // ID for the user's photo in Azure Blob Storage
+    private List<String> ownedLegoSets;
 
     // Getters and Setters
 
@@ -20,14 +19,7 @@ public class User {
         this.id = id;
     }
 
-    public String getNickname() {
-        return nickname;
-    }
-
-    public void setNickname(String nickname) {
-        this.nickname = nickname;
-    }
-
+   
     public String getName() {
         return name;
     }
@@ -58,5 +50,11 @@ public class User {
 
     public void setPhotoMediaId(String photoMediaId) {
         this.photoMediaId = photoMediaId;
+    }
+
+    public void addOwnedLegoSet(String legoSetId) {
+        if (this.ownedLegoSets != null && !this.ownedLegoSets.contains(legoSetId)) {
+            this.ownedLegoSets.add(legoSetId);
+        }
     }
 }

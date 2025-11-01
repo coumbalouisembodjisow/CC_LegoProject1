@@ -3,6 +3,7 @@ package cc.srv.data;
 import jakarta.ws.rs.*;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
+import cc.srv.cache.CacheService;
 import cc.srv.db.CosmosDBLayer;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -51,6 +52,7 @@ public String testDatabase() {
     @GET
     @Produces(MediaType.APPLICATION_JSON)
     public Response getAllUsers() {
+        
         try {
             Iterator<User> usersIterator = dbLayer.getUsers().iterator();
             List<User> userList = new ArrayList<>();
@@ -77,16 +79,36 @@ public String testDatabase() {
     @Path("/{id}")
     @Produces(MediaType.APPLICATION_JSON)
     public Response getUserById(@PathParam("id") String id) {
-        try {
+        
+        try {   
+        // // try to get user from cache
+        boolean cacheEnabled = Boolean.parseBoolean(System.getenv("CACHE_ENABLED"));
+        if (cacheEnabled) {
+            User cachedUser = CacheService.getCachedUser(id);
+            if (cachedUser != null) {
+                System.out.println("User " + id + " served from CACHE");
+                return Response.ok(cachedUser).build();
+            }
+        }
+            // if not in cache, get from database
             Iterator<User> iterator = dbLayer.getUserById(id).iterator();
 
             if (iterator.hasNext()) {
                 User user = iterator.next();
+                // put in cache 
+                if (cacheEnabled) {
+                CacheService.cacheUser(user);
+                System.out.println("User " + id + " served from DB and CACHED");
+            } else {
+                System.out.println("User " + id + " served from DB (no cache)");
+            }
                 return Response.ok(user).build();
             } else {
                 return Response.status(404).entity("User not found with ID: " + id).build();
             }
-        } catch (Exception e) {
+      
+            }
+        catch (Exception e) {
             return Response.status(500).entity("Error retrieving user: " + e.getMessage()).build();
         }
     }
@@ -98,22 +120,33 @@ public String testDatabase() {
     @POST
     @Consumes(MediaType.APPLICATION_JSON)
     @Produces(MediaType.APPLICATION_JSON)
-    public Response createUser(User user) {
+    public Response createUser(Map<String, Object> userData) {
         try {
-            // Validate required fields
+            System.out.println("Received: " + userData);
+            
+            // Conversion manuelle
+            User user = new User();
+            user.setId((String) userData.get("id"));
+            user.setName((String) userData.get("name"));
+            user.setPassword((String) userData.get("password"));
+            user.setPhotoMediaId((String) userData.get("photoMediaId"));
+
             if (user.getId() == null || user.getId().trim().isEmpty()) {
-                return Response.status(400).entity("User ID is required").build();
-            }
-            if (user.getNickname() == null || user.getNickname().trim().isEmpty()) {
-                return Response.status(400).entity("Nickname is required").build();
+                return Response.status(400).entity("{\"error\":\"ID required\"}").build();
             }
 
-            // Create user in database
             dbLayer.putUser(user);
+            // cache the new user
+            boolean cacheEnabled = Boolean.parseBoolean(System.getenv("CACHE_ENABLED"));
+            if (cacheEnabled) {
+                CacheService.cacheUser(user);
+                System.out.println("New user " + user.getId() + " CACHED after creation");
+            }
+        
             return Response.status(201).entity(user).build();
             
         } catch (Exception e) {
-            return Response.status(500).entity("Error creating user: " + e.getMessage()).build();
+            return Response.status(500).entity("{\"error\":\"Server error\"}").build();
         }
     }
 
@@ -131,6 +164,13 @@ public String testDatabase() {
             
             // Update user in database
             dbLayer.updateUser(user);
+            // update cache
+            boolean cacheEnabled = Boolean.parseBoolean(System.getenv("CACHE_ENABLED"));
+            if (cacheEnabled) {
+                CacheService.invalidateUser(id); // Invalider l'ancienne version
+                CacheService.cacheUser(user);    // Recacher la nouvelle version
+                System.out.println("User " + id + " cache UPDATED after modification");
+            }
             return Response.ok(user).build();
             
         } catch (Exception e) {
@@ -169,6 +209,12 @@ public Response deleteUser(@PathParam("id") String id) {
         
         // delete the user
         dbLayer.delUserById(id);
+        // invalidate cache
+        boolean cacheEnabled = Boolean.parseBoolean(System.getenv("CACHE_ENABLED"));
+        if (cacheEnabled) {
+            CacheService.invalidateUser(id);
+            System.out.println("User " + id + " cache INVALIDATED after deletion");
+        }
         
         Map<String, Object> response = new HashMap<>();
         response.put("message", "User deleted successfully");
@@ -198,7 +244,6 @@ private void createDeletedUserIfNeeded() {
             // create the Deleted User
             User deletedUser = new User();
             deletedUser.setId("deleted-user");
-            deletedUser.setNickname("Deleted User");
             deletedUser.setName("Deleted User");
             deletedUser.setPassword(""); // Pas de mot de passe
             
@@ -208,6 +253,96 @@ private void createDeletedUserIfNeeded() {
         }
     } catch (Exception e) {
         Logger.getLogger(UserResource.class.getName()).severe("Error creating Deleted User: " + e.getMessage());
+    }
+}
+/**
+ * GET /rest/user/{userId}/legosets - Get all LegoSets owned by a specific user
+ */
+@GET
+@Path("/{id}/legosets")
+@Produces(MediaType.APPLICATION_JSON)
+public Response getUserLegoSets(@PathParam("id") String userId) {
+    try {
+        // try to get from cache first
+        boolean cacheEnabled = Boolean.parseBoolean(System.getenv("CACHE_ENABLED"));
+        if (cacheEnabled) {
+            List<LegoSet> cachedLegoSets = CacheService.getCachedUserLegoSets(userId);
+            if (cachedLegoSets != null) {
+                System.out.println("User LegoSets " + userId + " served from CACHE");
+                return Response.ok(cachedLegoSets).build();
+            }
+        }
+        // if not in cache, get from database
+        Iterator<User> userIterator = dbLayer.getUserById(userId).iterator();
+        if (!userIterator.hasNext()) {
+            return Response.status(404).entity("User not found with ID: " + userId).build();
+        }
+
+        User user = userIterator.next();
+        
+        // get list of owned LegoSet IDs
+        List<String> ownedLegoSetIds = user.getOwnedLegoSets();
+        
+        if (ownedLegoSetIds == null || ownedLegoSetIds.isEmpty()) {
+            return Response.status(404).entity("No LegoSets found for user: " + userId).build();
+        }
+
+        // Récupérer les détails de chaque LegoSet
+        List<LegoSet> userLegoSets = new ArrayList<>();
+        for (String legoSetId : ownedLegoSetIds) {
+            Iterator<LegoSet> legoSetIterator = dbLayer.getLegoSetById(legoSetId).iterator();
+            if (legoSetIterator.hasNext()) {
+                userLegoSets.add(legoSetIterator.next());
+            }
+        }
+        // cache the result
+        if (cacheEnabled) {
+            CacheService.cacheUserLegoSets(userId, userLegoSets);
+            System.out.println("User LegoSets " + userId + " served from DB and CACHED");
+        } else {
+            System.out.println("User LegoSets " + userId + " served from DB (no cache)");
+        }
+        return Response.ok(userLegoSets).build();
+        
+    } catch (Exception e) {
+        return Response.status(500).entity("Error retrieving user LegoSets: " + e.getMessage()).build();
+    }
+}
+
+/**
+ * POST /rest/user/{id}/legosets/{legoSetId} - Add a LegoSet to user's collection
+ */
+@POST
+@Path("/{id}/legosets/{legoSetId}")  
+@Produces(MediaType.APPLICATION_JSON)
+public Response addLegoSetToUser(
+    @PathParam("id") String userId, 
+    @PathParam("legoSetId") String legoSetId) {  
+    
+    try {
+        Iterator<User> userIterator = dbLayer.getUserById(userId).iterator();
+        if (!userIterator.hasNext()) {
+            return Response.status(404).entity("User not found").build();
+        }
+
+        User user = userIterator.next();
+        user.addOwnedLegoSet(legoSetId);
+        dbLayer.updateUser(user);
+        // invalidate cache
+        boolean cacheEnabled = Boolean.parseBoolean(System.getenv("CACHE_ENABLED"));
+        if (cacheEnabled) {
+            CacheService.invalidateUser(userId);
+            System.out.println("User LegoSets " + userId + " cache INVALIDATED after adding new LegoSet");
+        }
+        Map<String, String> response = new HashMap<>();
+        response.put("message", "LegoSet added to user collection");
+        response.put("userId", userId);
+        response.put("legoSetId", legoSetId);
+
+        return Response.ok(response).build();
+        
+    } catch (Exception e) {
+        return Response.status(500).entity("Error adding LegoSet to user: " + e.getMessage()).build();
     }
 }
 }

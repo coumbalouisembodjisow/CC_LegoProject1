@@ -7,6 +7,10 @@ import cc.srv.db.CosmosDBLayer;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
+
+import com.azure.cosmos.CosmosContainer;
+import com.azure.cosmos.models.CosmosQueryRequestOptions;
+import cc.srv.cache.CacheService;
 import java.util.Date;
 
 @Path("/auction")
@@ -44,11 +48,26 @@ public class AuctionResource {
     @Produces(MediaType.APPLICATION_JSON)
     public Response getAuction(@PathParam("id") String id) {
         try {
+            // try cache
+            boolean cacheEnabled = Boolean.parseBoolean(System.getenv("CACHE_ENABLED"));
+            if (cacheEnabled) {
+                Auction cachedAuction = CacheService.getCachedAuction(id);
+                if (cachedAuction != null) {
+                    System.out.println("Auction " + id + " served from CACHE");
+                    return Response.ok(cachedAuction).build();
+                }}
+            // if not in cache, get from database
             Iterator<Auction> iterator = dbLayer.getAuctionById(id).iterator();
 
             if (iterator.hasNext()) {
                 Auction auction = iterator.next();
+                // cache it
+                if (cacheEnabled) {
+                    CacheService.cacheAuction(auction);
+                    System.out.println("Auction " + id + " CACHED after retrieval from DB");
+                }
                 return Response.ok(auction).build();
+
             } else {
                 return Response.status(404).entity("Auction not found with ID: " + id).build();
             }
@@ -69,7 +88,7 @@ public class AuctionResource {
         try {
             // Validation
             if (auction.getId() == null || auction.getId().trim().isEmpty()) {
-                return Response.status(400).entity("Auction ID is required").build();
+                auction.setId(java.util.UUID.randomUUID().toString());
             }
             if (auction.getLegoSetId() == null || auction.getLegoSetId().trim().isEmpty()) {
                 return Response.status(400).entity("LegoSet ID is required").build();
@@ -88,6 +107,17 @@ public class AuctionResource {
             }
             
             dbLayer.putAuction(auction);
+            // cache the new auction
+            boolean cacheEnabled = Boolean.parseBoolean(System.getenv("CACHE_ENABLED"));
+            if (cacheEnabled) {
+                CacheService.cacheAuction(auction);
+                System.out.println("New auction " + auction.getId() + " CACHED after creation");
+            }
+            // invalidate auctions list cache for this LegoSet
+                CacheService.invalidateAuctionsByLegoSet(auction.getLegoSetId());
+            
+            System.out.println("New auction " + auction.getId() + " CACHED and lists INVALIDATED after creation");
+        
             return Response.status(201).entity(auction).build();
             
         } catch (Exception e) {
@@ -141,10 +171,55 @@ public class AuctionResource {
             
             // Mettre à jour l'enchère dans la base
             dbLayer.updateAuction(auction);
+            // invalidate cache
+            boolean cacheEnabled = Boolean.parseBoolean(System.getenv("CACHE_ENABLED"));
+            if (cacheEnabled) {
+            CacheService.cacheAuction(auction); 
+            CacheService.invalidateAuctionsByLegoSet(auction.getLegoSetId()); 
+            System.out.println("Auction cache UPDATED and list cache INVALIDATED after new bid");
+        }
+           
             return Response.ok(auction).build();
             
         } catch (Exception e) {
             return Response.status(500).entity("Error placing bid: " + e.getMessage()).build();
+        }
+    }
+
+    @GET
+    @Path("/legoset/{legoSetId}")
+    @Produces(MediaType.APPLICATION_JSON)
+    public Response getActiveAuctionsByLegoSet(@PathParam("legoSetId") String legoSetId) {
+        try {
+            // try to get from cache first
+            boolean cacheEnabled = Boolean.parseBoolean(System.getenv("CACHE_ENABLED"));
+            if (cacheEnabled) {
+                List<Auction> cachedAuctions = CacheService.getCachedAuctionsByLegoSet(legoSetId);
+                if (cachedAuctions != null) {
+                    System.out.println("Auctions for LegoSet " + legoSetId + " served from CACHE");
+                    return Response.ok(cachedAuctions).build();
+                }}
+            CosmosContainer auctionContainer = dbLayer.getAuctionContainer();
+            String query = "SELECT * FROM c WHERE c.legoSetId = '" + legoSetId + "' ";
+            Iterator<Auction> auctionIterator = auctionContainer.queryItems(query, new CosmosQueryRequestOptions(), Auction.class).iterator();
+            
+            List<Auction> activeAuctions = new ArrayList<>();
+            while (auctionIterator.hasNext()) {
+                activeAuctions.add(auctionIterator.next());
+            }
+
+            // cache the result
+            if (cacheEnabled) {
+            CacheService.cacheAuctionsByLegoSet(legoSetId, activeAuctions);
+            System.out.println("Auctions for LegoSet " + legoSetId + " served from DB and CACHED");
+        } else {
+            System.out.println(" Auctions for LegoSet " + legoSetId + " served from DB (no cache)");
+        }
+            
+            return Response.ok(activeAuctions).build();
+            
+        } catch (Exception e) {
+            return Response.status(500).entity("Error retrieving active auctions: " + e.getMessage()).build();
         }
     }
 

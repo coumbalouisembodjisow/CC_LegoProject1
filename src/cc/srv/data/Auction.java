@@ -2,11 +2,13 @@ package cc.srv.data;
 
 import java.util.Date;
 import java.util.*;
+import com.fasterxml.jackson.annotation.JsonFormat;
 public class Auction {
     private String id;
     private String legoSetId;        // Référence au set Lego
     private String sellerId;         // Référence  au user vendeur
     private double basePrice;        // Prix de base (starting price)
+    @JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "yyyy-MM-dd'T'HH:mm:ss.SSSX")
     private Date closeDate;          // Date de fin de l'enchère
     private String status;           // "ACTIVE", "ENDED", "CANCELLED"
     private List<AuctionBid> bids;
