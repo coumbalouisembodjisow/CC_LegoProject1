@@ -271,6 +271,26 @@ public Response getRecentLegoSets() {
         return Response.status(500).entity("Error retrieving recent LegoSets: " + e.getMessage()).build();
     }
 }
+// Get most liked LegoSets
+@GET
+@Path("/most-liked")
+@Produces(MediaType.APPLICATION_JSON)
+public Response getMostLikedLegoSets(
+    @QueryParam("limit") @DefaultValue("10") int limit) {
     
-
+    try {
+        // Récupérer les LegoSets avec les meilleurs scores
+        Iterator<LegoSet> results = dbLayer.getMostLikedLegoSets(limit);
+        List<LegoSet> mostLiked = new ArrayList<>();
+        
+        while (results.hasNext()) {
+            mostLiked.add(results.next());
+        }
+        
+        return Response.ok(mostLiked).build();
+        
+    } catch (Exception e) {
+        return Response.status(500).entity("Error retrieving most liked sets: " + e.getMessage()).build();
+    }
+}
 }

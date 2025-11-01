@@ -9,6 +9,7 @@ public class LegoSet {
     private String name;
     private String description;
     private List<String> photoMediaIds; // IDs for photos stored in Azure Blob Storage
+    @JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "yyyy-MM-dd'T'HH:mm:ss.SSSX")
     private Date createdAt; // to have the most recent sets
     
     // Constructeurs

@@ -301,4 +301,13 @@ public class CosmosDBLayer {
         init();
         return comments; 
     }
+	// Récupère les LegoSets les plus aimés
+	public Iterator<LegoSet> getMostLikedLegoSets(int limit) {
+    String query = "SELECT * FROM c WHERE IS_DEFINED(c.sentimentScore) " +
+                  "AND c.isLiked = true " +
+                  "ORDER BY c.sentimentScore DESC " +
+                  "OFFSET 0 LIMIT " + limit;
+    
+    return legosets.queryItems(query, new CosmosQueryRequestOptions(), LegoSet.class).iterator();
+}
 }
