@@ -3,6 +3,7 @@ package cc.srv.data;
 import java.util.Date;
 import java.util.ArrayList;
 import java.util.List;
+import com.fasterxml.jackson.annotation.JsonFormat;
 
 public class LegoSet {
     private String id;

@@ -7,6 +7,7 @@ import cc.srv.db.CosmosDBLayer;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
+import java.util.UUID;
 
 import com.azure.cosmos.CosmosContainer;
 import com.azure.cosmos.models.CosmosQueryRequestOptions;
@@ -125,66 +126,70 @@ public class AuctionResource {
         }
     }
 
-    /**
-     * POST /rest/auction/{id}/bid - Place bid on auction
-     */
-    @POST
-    @Path("/{id}/bid")
-    @Consumes(MediaType.APPLICATION_JSON)
-    @Produces(MediaType.APPLICATION_JSON)
-    public Response placeBid(@PathParam("id") String auctionId, AuctionBid bid) {
-        try {
-            Iterator<Auction> iterator = dbLayer.getAuctionById(auctionId).iterator();
-            
-            if (!iterator.hasNext()) {
-                return Response.status(404).entity("Auction not found").build();
-            }
-            
-            Auction auction = iterator.next();
-            
-            // Validation de l'enchère
-            if (!"ACTIVE".equals(auction.getStatus())) {
-                return Response.status(400).entity("Auction is not active").build();
-            }
-            
-            if (new Date().after(auction.getCloseDate())) {
-                return Response.status(400).entity("Auction has ended").build();
-            }
-            
-            if (bid.getBidderId() == null || bid.getBidderId().trim().isEmpty()) {
-                return Response.status(400).entity("Bidder ID is required").build();
-            }
-            
-            if (bid.getAmount() <= auction.getBasePrice()) {
-                return Response.status(400).entity("Bid must be higher than base price: " + auction.getBasePrice()).build();
-            }
-            
-            // Vérifier si c'est plus haut que la meilleure enchère actuelle
-            AuctionBid currentWinningBid = auction.getCurrentWinningBid();
-            if (currentWinningBid != null && bid.getAmount() <= currentWinningBid.getAmount()) {
-                return Response.status(400).entity("Bid must be higher than current winning bid: " + currentWinningBid.getAmount()).build();
-            }
-            
-            // Ajouter l'enchère
-            bid.setBidTime(new Date());
-            auction.addBid(bid);
-            
-            // Mettre à jour l'enchère dans la base
-            dbLayer.updateAuction(auction);
-            // invalidate cache
-            boolean cacheEnabled = Boolean.parseBoolean(System.getenv("CACHE_ENABLED"));
-            if (cacheEnabled) {
+   /**
+ * POST /rest/auction/{id}/bid - Place bid on auction
+ */
+@POST
+@Path("/{id}/bid")
+@Consumes(MediaType.APPLICATION_JSON)
+@Produces(MediaType.APPLICATION_JSON)
+public Response placeBid(@PathParam("id") String auctionId, AuctionBid bid) {
+    try {
+        Iterator<Auction> iterator = dbLayer.getAuctionById(auctionId).iterator();
+        
+        if (!iterator.hasNext()) {
+            return Response.status(404).entity("Auction not found").build();
+        }
+        
+        Auction auction = iterator.next();
+        
+        // Validation de l'enchère
+        if (!"ACTIVE".equals(auction.getStatus())) {
+            return Response.status(400).entity("Auction is not active").build();
+        }
+        
+        if (new Date().after(auction.getCloseDate())) {
+            return Response.status(400).entity("Auction has ended").build();
+        }
+        
+        if (bid.getUserId() == null || bid.getUserId().trim().isEmpty()) {
+            return Response.status(400).entity("Bidder ID is required").build();
+        }
+        
+        if (bid.getAmount() <= auction.getBasePrice()) {
+            return Response.status(400).entity("Bid must be higher than base price: " + auction.getBasePrice()).build();
+        }
+        
+        // Vérifier si c'est plus haut que la meilleure enchère actuelle
+        AuctionBid currentWinningBid = auction.getCurrentWinningBid();
+        if (currentWinningBid != null && bid.getAmount() <= currentWinningBid.getAmount()) {
+            return Response.status(400).entity("Bid must be higher than current winning bid: " + currentWinningBid.getAmount()).build();
+        }
+        
+        bid.setId(UUID.randomUUID().toString()); // Génération ID automatique
+        bid.setAuctionId(auctionId); // Associer l'ID de l'enchère
+        bid.setBidTime(new Date());
+        
+        // Ajouter l'enchère
+        auction.addBid(bid);
+        
+        // Mettre à jour l'enchère dans la base
+        dbLayer.updateAuction(auction);
+        
+        // Invalider le cache
+        boolean cacheEnabled = Boolean.parseBoolean(System.getenv("CACHE_ENABLED"));
+        if (cacheEnabled) {
             CacheService.cacheAuction(auction); 
             CacheService.invalidateAuctionsByLegoSet(auction.getLegoSetId()); 
             System.out.println("Auction cache UPDATED and list cache INVALIDATED after new bid");
         }
-           
-            return Response.ok(auction).build();
-            
-        } catch (Exception e) {
-            return Response.status(500).entity("Error placing bid: " + e.getMessage()).build();
-        }
+        
+        return Response.ok(auction).build();
+        
+    } catch (Exception e) {
+        return Response.status(500).entity("Error placing bid: " + e.getMessage()).build();
     }
+}
 
     @GET
     @Path("/legoset/{legoSetId}")
