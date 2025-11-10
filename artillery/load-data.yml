@@ -83,7 +83,7 @@ scenarios:
                 Accept: application/json
               json:
                 ownedLegoSets: ["{{ lsId }}"]
-              afterResponse: "logResponseDetails"
+              #afterResponse: "logResponseDetails"
           - post:                          # Third: post comment
               url: "/legoset/{{ lsId }}/comment"
               headers:

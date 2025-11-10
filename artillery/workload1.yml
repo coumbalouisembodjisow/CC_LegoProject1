@@ -42,12 +42,12 @@ scenarios:
             capture: 
               json: "$"
               as: "legoSetInfo"
-            afterResponse: "logResponseDetails"
+            #afterResponse: "logResponseDetails"
         - get:                          # Second: get image of legoset
             url: "/media/{{ legoSetInfo.photoMediaIds[0] }}"
             headers:
               Accept: image/jpeg
-            afterResponse: "logResponseDetails"
+            #afterResponse: "logResponseDetails"
         - get:                          # Get bids for auction
            url: "/auction/{{ $loopElement.id }}/bids"
           headers:
@@ -133,7 +133,7 @@ scenarios:
             capture: 
               json: "$"
               as: "userInfo"
-            afterResponse: "logResponseDetails"
+            #afterResponse: "logResponseDetails"
             ifTrue: "nextAction == 3 or nextAction == 4"
         - loop:
           - get:                          # Get info for legoset
@@ -176,7 +176,7 @@ scenarios:
             capture: 
               json: "$.id"
               as: "lsId"
-            afterResponse: "logResponseDetails"
+            #afterResponse: "logResponseDetails"
             ifTrue: "afterNextAction == 13"
         - function: "genNewOldAuction"   # generate a auction for the product
         - post:                          # Third: post auction
@@ -199,7 +199,7 @@ scenarios:
             url: "/legoset/{{ lsId }}"
             headers:
               Accept: application/json
-            afterResponse: "logResponseDetails"
+            #afterResponse: "logResponseDetails"
             ifTrue: "afterNextAction == 10 and lsId"
         - function: "genProductComment"   # generate a comment for the product
         - post:                          # Third: post comment
