@@ -28,6 +28,7 @@ public class CacheService {
     private static final String RECENT_LEGOSETS = "recent_legosets";
     private static final String USER_LEGOSETS_PREFIX = "user_legosets:";
     private static final String ACTIVE_AUCTIONS = "active_auctions";
+    private static final String RECENT_AUCTIONS = "recent_auctions";
     
     // === USER CACHE ===
     
@@ -172,6 +173,38 @@ public class CacheService {
         }
     }
     
+    public static List<Auction> getCachedRecentAuctions() {
+    try (Jedis jedis = RedisCache.getCachePool().getResource()) {
+        String auctionsJson = jedis.get("recent_auctions");
+        if (auctionsJson != null && !auctionsJson.trim().isEmpty()) {
+            System.out.println("Recent Auctions from cache");
+            return mapper.readValue(auctionsJson, new TypeReference<List<Auction>>(){});
+        }
+        return null;
+    } catch (Exception e) {
+        System.err.println("Error getting cached recent auctions: " + e.getMessage());
+        return null;
+    }
+}
+
+public static void cacheRecentAuctions(List<Auction> auctions) {
+    if (auctions == null) {
+        System.err.println("Cannot cache null recent auctions list");
+        return;
+    }
+    
+    try (Jedis jedis = RedisCache.getCachePool().getResource()) {
+        String auctionsJson = mapper.writeValueAsString(auctions);
+        
+        // TTL court car la liste des récents change fréquemment
+        jedis.setex("recent_auctions", TTL_SHORT * 60, auctionsJson);
+        
+        System.out.println("Recent Auctions cached (" + auctions.size() + " items)");
+        
+    } catch (Exception e) {
+        System.err.println("Error caching recent auctions: " + e.getMessage());
+    }
+}
     public static void invalidateAuction(String auctionId) {
         if (auctionId == null || auctionId.trim().isEmpty()) {
             return;

@@ -135,7 +135,7 @@ public class CosmosDBLayer {
 		}
 	}
 	
-	//  Méthode updateUser manquante
+	//  Méthode updateUser 
 	public CosmosItemResponse<User> updateUser(User user) {
 		init();
 		return users.upsertItem(user);
@@ -310,4 +310,5 @@ public class CosmosDBLayer {
     
     return legosets.queryItems(query, new CosmosQueryRequestOptions(), LegoSet.class).iterator();
 }
+
 }

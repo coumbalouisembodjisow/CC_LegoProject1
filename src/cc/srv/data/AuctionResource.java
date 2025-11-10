@@ -8,11 +8,11 @@ import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
 import java.util.UUID;
-
 import com.azure.cosmos.CosmosContainer;
 import com.azure.cosmos.models.CosmosQueryRequestOptions;
 import cc.srv.cache.CacheService;
 import java.util.Date;
+import java.util.stream.Collectors;
 
 @Path("/auction")
 public class AuctionResource {
@@ -77,6 +77,30 @@ public class AuctionResource {
         }
     }
 
+    // get auctions' bids
+@GET
+@Path("/{id}/bids")
+@Produces(MediaType.APPLICATION_JSON)
+public Response getAuctionBids(@PathParam("id") String auctionId) {
+    try {
+        // Récupérer l'auction depuis la base de données
+        Iterator<Auction> iterator = dbLayer.getAuctionById(auctionId).iterator();
+        
+        if (!iterator.hasNext()) {
+            return Response.status(404).entity("Auction not found").build();
+        }
+        
+        Auction auction = iterator.next();
+        
+        // Retourner uniquement la liste des bids
+        List<AuctionBid> bids = auction.getBids();
+        
+        return Response.ok(bids).build();
+        
+    } catch (Exception e) {
+        return Response.status(500).entity("Error retrieving auction bids: " + e.getMessage()).build();
+    }
+}
     // ==================== POST ENDPOINTS ====================
 
     /**
@@ -91,12 +115,7 @@ public class AuctionResource {
             if (auction.getId() == null || auction.getId().trim().isEmpty()) {
                 auction.setId(java.util.UUID.randomUUID().toString());
             }
-            if (auction.getLegoSetId() == null || auction.getLegoSetId().trim().isEmpty()) {
-                return Response.status(400).entity("LegoSet ID is required").build();
-            }
-            if (auction.getSellerId() == null || auction.getSellerId().trim().isEmpty()) {
-                return Response.status(400).entity("Seller ID is required").build();
-            }
+
             if (auction.getCloseDate() == null) {
                 return Response.status(400).entity("Close date is required").build();
             }
@@ -142,33 +161,13 @@ public Response placeBid(@PathParam("id") String auctionId, AuctionBid bid) {
         }
         
         Auction auction = iterator.next();
+       
+        if (bid.getId() == null || bid.getId().trim().isEmpty()) {
+            bid.setId(UUID.randomUUID().toString()); // Génération ID automatique
+             }
         
-        // Validation de l'enchère
-        if (!"ACTIVE".equals(auction.getStatus())) {
-            return Response.status(400).entity("Auction is not active").build();
-        }
-        
-        if (new Date().after(auction.getCloseDate())) {
-            return Response.status(400).entity("Auction has ended").build();
-        }
-        
-        if (bid.getUserId() == null || bid.getUserId().trim().isEmpty()) {
-            return Response.status(400).entity("Bidder ID is required").build();
-        }
-        
-        if (bid.getAmount() <= auction.getBasePrice()) {
-            return Response.status(400).entity("Bid must be higher than base price: " + auction.getBasePrice()).build();
-        }
-        
-        // Vérifier si c'est plus haut que la meilleure enchère actuelle
-        AuctionBid currentWinningBid = auction.getCurrentWinningBid();
-        if (currentWinningBid != null && bid.getAmount() <= currentWinningBid.getAmount()) {
-            return Response.status(400).entity("Bid must be higher than current winning bid: " + currentWinningBid.getAmount()).build();
-        }
-        
-        bid.setId(UUID.randomUUID().toString()); // Génération ID automatique
         bid.setAuctionId(auctionId); // Associer l'ID de l'enchère
-        bid.setBidTime(new Date());
+       
         
         // Ajouter l'enchère
         auction.addBid(bid);
@@ -255,4 +254,50 @@ public Response placeBid(@PathParam("id") String auctionId, AuctionBid bid) {
             return Response.status(500).entity("Error retrieving active auctions: " + e.getMessage()).build();
         }
     }
+
+@GET
+@Path("/any/recent")
+@Produces(MediaType.APPLICATION_JSON)
+public Response getRecentAuctions(@QueryParam("st") int start, 
+                                  @QueryParam("len") int length) {
+    try {
+        boolean cacheEnabled = Boolean.parseBoolean(System.getenv("CACHE_ENABLED"));
+        
+        int limit = (length > 0) ? length : 20;
+        
+        if (cacheEnabled) {
+            List<Auction> cachedRecentAuctions = CacheService.getCachedRecentAuctions();
+            if (cachedRecentAuctions != null) {
+                System.out.println("Recent Auctions served from CACHE");
+                List<Auction> limitedAuctions = cachedRecentAuctions.stream()
+                    .skip(start)
+                    .limit(limit)
+                    .collect(Collectors.toList());
+                return Response.ok(limitedAuctions).build();
+            }
+        }
+        
+        String query = "SELECT * FROM c ORDER BY c.startDate DESC OFFSET " + start + " LIMIT " + limit;
+        Iterator<Auction> recentAuctions = dbLayer.getAuctionContainer()
+            .queryItems(query, new CosmosQueryRequestOptions(), Auction.class)
+            .iterator();
+        
+        List<Auction> recentAuctionList = new ArrayList<>();
+        while (recentAuctions.hasNext()) {
+            recentAuctionList.add(recentAuctions.next());
+        }
+        
+        if (cacheEnabled) {
+            CacheService.cacheRecentAuctions(recentAuctionList);
+            System.out.println("Recent Auctions CACHED after retrieval from DB");
+        }
+
+        return Response.ok(recentAuctionList).build();
+        
+    } catch (Exception e) {
+        return Response.status(500)
+            .entity("Error retrieving recent Auctions: " + e.getMessage())
+            .build();
+    }
+}
 }

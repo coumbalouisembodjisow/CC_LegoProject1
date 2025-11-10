@@ -7,10 +7,14 @@ import cc.srv.db.CosmosDBLayer;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Arrays;
 import java.util.UUID;
-
 import cc.srv.cache.CacheService;
-//import java.util.Arrays;
+import java.util.stream.Collectors;
+import com.azure.cosmos.models.SqlParameter;
+import com.azure.cosmos.models.SqlQuerySpec;
+import com.azure.cosmos.models.CosmosQueryRequestOptions;
+
 
 import com.azure.cosmos.models.CosmosQueryRequestOptions;
 
@@ -211,55 +215,77 @@ public class LegoSetResource {
         }
     }
 
-    // Get comments for a specific LegoSet
-    @GET
-    @Path("/{id}/comment")
-    @Produces(MediaType.APPLICATION_JSON)
-    public Response getComments(@PathParam("id") String legoSetId) {
-        try {
-            // check that the LegoSet exists
-            Iterator<LegoSet> legoSetIterator = dbLayer.getLegoSetById(legoSetId).iterator();
-            if (!legoSetIterator.hasNext()) {
-                return Response.status(404).entity("LegoSet not found with ID: " + legoSetId).build();
-            }
-
-            // retrieve comments
-            Iterator<Comment> commentsIterator = dbLayer.getCommentsByLegoSetId(legoSetId).iterator();
-            List<Comment> comments = new ArrayList<>();
-            
-            while (commentsIterator.hasNext()) {
-                comments.add(commentsIterator.next());
-            }
-
-            return Response.ok(comments).build();
-        } catch (Exception e) {
-            return Response.status(500).entity("Error retrieving comments: " + e.getMessage()).build();
-        }
-    }
-
+// Get comments for a specific LegoSet
 @GET
-@Path("/recent")
+@Path("/{id}/comments")
 @Produces(MediaType.APPLICATION_JSON)
-public Response getRecentLegoSets() {
+public Response getComments(
+        @PathParam("id") String legoSetId,
+        @QueryParam("st") @DefaultValue("0") int start,
+        @QueryParam("len") @DefaultValue("20") int length) {
     try {
-        // Try to get from cache first
+        // Check that the LegoSet exists
+        Iterator<LegoSet> legoSetIterator = dbLayer.getLegoSetById(legoSetId).iterator();
+        if (!legoSetIterator.hasNext()) {
+            return Response.status(404).entity("LegoSet not found with ID: " + legoSetId).build();
+        }
+
+        // Retrieve comments with pagination
+        String query = "SELECT * FROM c WHERE c.legoSetId = @legoSetId OFFSET " + start + " LIMIT " + length;
+        List<SqlParameter> params = Arrays.asList(new SqlParameter("@legoSetId", legoSetId));
+        
+        Iterator<Comment> commentsIterator = dbLayer.getCommentContainer()
+            .queryItems(new SqlQuerySpec(query, params), new CosmosQueryRequestOptions(), Comment.class)
+            .iterator();
+        
+        List<Comment> comments = new ArrayList<>();
+        while (commentsIterator.hasNext()) {
+            comments.add(commentsIterator.next());
+        }
+
+        return Response.ok(comments).build();
+    } catch (Exception e) {
+        return Response.status(500).entity("Error retrieving comments: " + e.getMessage()).build();
+    }
+}
+   
+@GET
+@Path("/any/recent")
+@Produces(MediaType.APPLICATION_JSON)
+public Response getRecentLegoSets(@QueryParam("st") int start, 
+                                  @QueryParam("len") int length) {
+    try {
         boolean cacheEnabled = Boolean.parseBoolean(System.getenv("CACHE_ENABLED"));
+        
+        //  limite par défaut si non spécifiée
+        int limit = (length > 0) ? length : 20;
+        
+        // Try to get from cache first (vous devrez peut-être adapter le cache pour gérer les limites)
         if (cacheEnabled) {
             List<LegoSet> cachedRecentSets = CacheService.getCachedRecentLegoSets();
             if (cachedRecentSets != null) {
                 System.out.println("Recent LegoSets served from CACHE");
-                return Response.ok(cachedRecentSets).build();
+                // Appliquer la limite sur les données en cache
+                List<LegoSet> limitedSets = cachedRecentSets.stream()
+                    .skip(start)
+                    .limit(limit)
+                    .collect(Collectors.toList());
+                return Response.ok(limitedSets).build();
             }
         }
-        // Requête Cosmos DB pour récupérer directement les 10 plus récents
-        String query = "SELECT TOP 10 * FROM c ORDER BY c.createdAt DESC";
-        Iterator<LegoSet> recentLegoSets = dbLayer.getLegoSetContainer().queryItems(query, new CosmosQueryRequestOptions(), LegoSet.class).iterator();
+        
+        // Requête Cosmos DB avec la limite dynamique
+        String query = "SELECT * FROM c ORDER BY c.createdAt DESC OFFSET " + start + " LIMIT " + limit;
+        Iterator<LegoSet> recentLegoSets = dbLayer.getLegoSetContainer()
+            .queryItems(query, new CosmosQueryRequestOptions(), LegoSet.class)
+            .iterator();
         
         List<LegoSet> recentSets = new ArrayList<>();
         while (recentLegoSets.hasNext()) {
             recentSets.add(recentLegoSets.next());
         }
-        // Cache the recent LegoSets
+        
+        // Cache the recent LegoSets (vous pourriez cacher le jeu complet)
         if (cacheEnabled) {
             CacheService.cacheRecentLegoSets(recentSets);
             System.out.println("Recent LegoSets CACHED after retrieval from DB");
@@ -268,7 +294,9 @@ public Response getRecentLegoSets() {
         return Response.ok(recentSets).build();
         
     } catch (Exception e) {
-        return Response.status(500).entity("Error retrieving recent LegoSets: " + e.getMessage()).build();
+        return Response.status(500)
+            .entity("Error retrieving recent LegoSets: " + e.getMessage())
+            .build();
     }
 }
 // Get most liked LegoSets
@@ -293,4 +321,5 @@ public Response getMostLikedLegoSets(
         return Response.status(500).entity("Error retrieving most liked sets: " + e.getMessage()).build();
     }
 }
+
 }

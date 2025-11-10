@@ -12,6 +12,8 @@ public class Auction {
     private Date closeDate;          // Date de fin de l'enchère
     private String status;           // "ACTIVE", "ENDED", "CANCELLED"
     private List<AuctionBid> bids;
+    private AuctionBid highestBid;
+
     // Constructeurs
     public Auction() {
         this.bids = new ArrayList<>();
@@ -25,6 +27,7 @@ public class Auction {
         this.basePrice = basePrice;
         this.closeDate = closeDate;
         this.status = "ACTIVE";
+        this.highestBid=null;
     }
     
     // Getters et Setters
@@ -52,15 +55,22 @@ public class Auction {
     // add a bid to the auction
     public void addBid(AuctionBid bid) {
         this.bids.add(bid);
+        updateWinningBid();
     }
+
+ public void updateWinningBid() {
+        if (bids == null || bids.isEmpty()) {
+            this.highestBid = null;
+        } else {
+            this.highestBid = bids.stream()
+                .max(Comparator.comparingDouble(AuctionBid::getAmount))
+                .orElse(null);
+        }
+    }
+
     
     // get the current winning bid
     public AuctionBid getCurrentWinningBid() {
-        if (bids.isEmpty()) {
-            return null;
-        }
-        return bids.stream()
-                .max((b1, b2) -> Double.compare(b1.getAmount(), b2.getAmount()))
-                .orElse(null);
-    }
+       return this.highestBid;
+}
 }

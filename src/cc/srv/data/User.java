@@ -1,13 +1,26 @@
 package cc.srv.data;
 
-import java.util.List;
+import java.util.Set;
+import java.util.HashSet;
 
 public class User {
     private String id;
     private String name;
     private String password;
     private String photoMediaId; // ID for the user's photo in Azure Blob Storage
-    private List<String> ownedLegoSets;
+    private Set<String> ownedLegoSets;
+
+    // Constructors
+    public User() {
+        this.ownedLegoSets = new HashSet<>();
+    }
+    public User(String id, String name, String password, String photoMediaId, Set<String> ownedLegoSets) {
+        this.id = id;
+        this.name = name;
+        this.password = password;
+        this.photoMediaId = photoMediaId;
+        this.ownedLegoSets = ownedLegoSets != null ? ownedLegoSets : new HashSet<>();
+    }
 
     // Getters and Setters
 
@@ -35,12 +48,7 @@ public class User {
     public void setPassword(String password) {
         this.password = password;
     }
-
-    public List<String> getOwnedLegoSets() {
-        return ownedLegoSets;
-    }
-
-    public void setOwnedLegoSets(List<String> ownedLegoSets) {
+    public void setOwnedLegoSets(Set<String> ownedLegoSets) {
         this.ownedLegoSets = ownedLegoSets;
     }
 
@@ -52,9 +60,19 @@ public class User {
         this.photoMediaId = photoMediaId;
     }
 
-    public void addOwnedLegoSet(String legoSetId) {
-        if (this.ownedLegoSets != null && !this.ownedLegoSets.contains(legoSetId)) {
-            this.ownedLegoSets.add(legoSetId);
+     public Set<String> getOwnedLegoSets() {
+        if (this.ownedLegoSets == null) {
+            this.ownedLegoSets = new HashSet<>(); 
         }
+        return this.ownedLegoSets;
+    }
+
+     public void addOwnedLegoSet(String legoSetId) {
+        getOwnedLegoSets().add(legoSetId); 
+    }
+    
+
+    public boolean ownsLegoSet(String legoSetId) {
+        return getOwnedLegoSets().contains(legoSetId); 
     }
 }

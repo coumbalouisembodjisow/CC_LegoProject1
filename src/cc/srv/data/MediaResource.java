@@ -64,8 +64,8 @@ public String upload(
 
         logger.info("File uploaded to Azure: " + mediaId);
 
-        // Réponse JSON (format du prof)
-        return "{\"id\": \"" + mediaId + "\"}";
+        
+        return mediaId;
         
     } catch (Exception e) {
         logger.severe("Upload error: " + e.getMessage());
