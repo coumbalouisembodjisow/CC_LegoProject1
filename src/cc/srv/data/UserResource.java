@@ -4,7 +4,7 @@ import jakarta.ws.rs.*;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 import cc.srv.cache.CacheService;
-import cc.srv.db.CosmosDBLayer;
+import cc.srv.db.MongoDBLayer;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Iterator;
@@ -14,16 +14,14 @@ import java.util.logging.Logger;
 import java.util.Set;
 import java.util.HashSet;
 import java.util.concurrent.CompletableFuture;
-import com.azure.cosmos.models.SqlParameter;
-import com.azure.cosmos.models.SqlQuerySpec;
-import com.azure.cosmos.models.CosmosQueryRequestOptions;
+
 /**
  * Class with control endpoints.
  */
 @Path("/user")
 public class UserResource
 {
-	private CosmosDBLayer dbLayer = CosmosDBLayer.getInstance();
+	private MongoDBLayer dbLayer = MongoDBLayer.getInstance();
      public UserResource() {
         // ensure Deleted User exists
         createDeletedUserIfNeeded();
@@ -45,7 +43,7 @@ public String testDatabase() {
     try {
         
         String connectionStatus = dbLayer.testConnection();
-        int userCount = dbLayer.countUsers();
+        long userCount = dbLayer.countUsers();
         return connectionStatus + " | Users in database: " + userCount;
     } catch (Exception e) {
         return "Database test FAILED: " + e.getMessage();
@@ -98,10 +96,10 @@ public String testDatabase() {
             }
         }
             // if not in cache, get from database
-            Iterator<User> iterator = dbLayer.getUserById(id).iterator();
+           User user = dbLayer.getUserById(id);
 
-            if (iterator.hasNext()) {
-                User user = iterator.next();
+            if (user != null) {
+                
                 // put in cache 
                 if (cacheEnabled) {
                 CacheService.cacheUser(user);
@@ -148,9 +146,8 @@ public Response createUser(Map<String, Object> userData) {
         if (name == null || name.trim().isEmpty()) {
             return Response.status(400).entity("{\"error\":\"User name is required\"}").build();
         }
-        
-        Iterator<User> existingUser = dbLayer.getUserById(userId).iterator();
-        if (existingUser.hasNext()) {
+        User  existingUser = dbLayer.getUserById(userId);
+        if (existingUser != null) {
             System.out.println(" User already exists: " + userId);
             return Response.status(409).entity("{\"error\":\"User already exists\"}").build();
         }
@@ -232,8 +229,8 @@ public Response createUser(Map<String, Object> userData) {
 public Response deleteUser(@PathParam("id") String id) {
     try {
         // check that the user exists
-        Iterator<User> userIterator = dbLayer.getUserById(id).iterator();
-        if (!userIterator.hasNext()) {
+        User  user = dbLayer.getUserById(id);
+        if (user != null) {
             return Response.status(404).entity("User not found with ID: " + id).build();
         }
         
@@ -284,9 +281,9 @@ public Response deleteUser(@PathParam("id") String id) {
 private void createDeletedUserIfNeeded() {
     try {
         
-        Iterator<User> deletedUserIterator = dbLayer.getUserById("deleted-user").iterator();
+        User  deletedUserIterator = dbLayer.getUserById("deleted-user") ;
         
-        if (!deletedUserIterator.hasNext()) {
+        if (deletedUserIterator != null) {
             // create the Deleted User
             User deletedUser = new User();
             deletedUser.setId("deleted-user");
@@ -319,13 +316,10 @@ public Response getUserLegoSets(@PathParam("id") String userId) {
             }
         }
         // if not in cache, get from database
-        Iterator<User> userIterator = dbLayer.getUserById(userId).iterator();
-        if (!userIterator.hasNext()) {
+        User user = dbLayer.getUserById(userId);
+        if (user != null) {
             return Response.status(404).entity("User not found with ID: " + userId).build();
-        }
-
-        User user = userIterator.next();
-        
+        }        
         // get list of owned LegoSet IDs
         Set<String> ownedLegoSetIds = user.getOwnedLegoSets();
         
@@ -336,9 +330,9 @@ public Response getUserLegoSets(@PathParam("id") String userId) {
         // Récupérer les détails de chaque LegoSet
         List<LegoSet> userLegoSets = new ArrayList<>();
         for (String legoSetId : ownedLegoSetIds) {
-            Iterator<LegoSet> legoSetIterator = dbLayer.getLegoSetById(legoSetId).iterator();
-            if (legoSetIterator.hasNext()) {
-                userLegoSets.add(legoSetIterator.next());
+            LegoSet legoSet = dbLayer.getLegoSetById(legoSetId);
+            if (legoSet != null) {
+                userLegoSets.add(legoSet);
             }
         }
         // cache the result
@@ -379,12 +373,12 @@ public Response addLegoSetToUser(
         
         //  Récupérer depuis DB si pas en cache
         if (user == null) {
-            Iterator<User> userIterator = dbLayer.getUserById(userId).iterator();
-            if (!userIterator.hasNext()) {
+            User userIterator = dbLayer.getUserById(userId);
+            if (userIterator== null) {
                 System.out.println(" User not found: " + userId);
                 return Response.status(404).entity("User not found").build();
             }
-            user = userIterator.next();
+            user = userIterator;
         }
         
         // si le LegoSet existe déjà (O(1) avec Set)
@@ -445,34 +439,24 @@ public Response addLegoSetToUser(
         return Response.status(500).entity("Error adding LegoSet to user: " + e.getMessage()).build();
     }
 }
+ @GET
+    @Path("/{id}/auctions")
+    @Produces(MediaType.APPLICATION_JSON)
+    public Response getUserAuctions(@PathParam("id") String userId) {
+        try {
+            Iterator<Auction> userAuctions = dbLayer.getAuctionsByUser(userId).iterator();
+            
+            List<Auction> auctionsList = new ArrayList<>();
+            while (userAuctions.hasNext()) {
+                auctionsList.add(userAuctions.next());
+            }
 
-@GET
-@Path("/{id}/auctions")
-@Produces(MediaType.APPLICATION_JSON)
-public Response getUserAuctions(@PathParam("id") String userId) {
-    try {
-        // Requête Cosmos DB pour récupérer les auctions de l'utilisateur
-        String query = "SELECT * FROM c WHERE c.sellerId = @userId ";
-        
-        List<SqlParameter> params = new ArrayList<>();
-        params.add(new SqlParameter("@userId", userId));
-        
-        Iterator<Auction> userAuctions = dbLayer.getAuctionContainer()
-            .queryItems(new SqlQuerySpec(query, params), new CosmosQueryRequestOptions(), Auction.class)
-            .iterator();
-        
-        List<Auction> auctionsList = new ArrayList<>();
-        while (userAuctions.hasNext()) {
-            auctionsList.add(userAuctions.next());
+            return Response.ok(auctionsList).build();
+            
+        } catch (Exception e) {
+            return Response.status(500)
+                .entity("Error retrieving user auctions: " + e.getMessage())
+                .build();
         }
-
-        return Response.ok(auctionsList).build();
-        
-    } catch (Exception e) {
-        return Response.status(500)
-            .entity("Error retrieving user auctions: " + e.getMessage())
-            .build();
     }
-}
-
 }

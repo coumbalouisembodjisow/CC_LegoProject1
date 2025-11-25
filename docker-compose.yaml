@@ -1,0 +1,57 @@
+services:
+  # MongoDB
+  mongo:
+    image: mongo:latest
+    restart: always
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: root
+      MONGO_INITDB_ROOT_PASSWORD: lego
+      MONGO_INITDB_DATABASE: legodb
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongodb_data:/data/db
+      - ./mongo-init.js:/docker-entrypoint-initdb.d/mongo-init.js:ro
+
+  # Mongo Express (interface web - optionnel)
+  mongo-express:
+    image: mongo-express:latest
+    restart: always
+    ports:
+      - "8081:8081"
+    environment:
+      MONGO_INITDB_ROOT_USERNAME:  root
+      MONGO_INITDB_ROOT_PASSWORD: lego
+      MONGO_INITDB_DATABASE: legodb
+      ME_CONFIG_BASICAUTH: false
+    depends_on:
+      - mongo
+  # Redis
+  redis:
+    image: redis:alpine
+    restart: always 
+    ports:
+      - "6379:6379"  
+    command: redis-server --appendonly yes
+    volumes:
+      - redis_data:/data 
+  # Votre application Tomcat
+  lego-app:
+    build: .
+    restart: always
+    ports:
+      - "8080:8080"
+    environment:
+      - SPRING_PROFILES_ACTIVE=dev
+      - CACHE_ENABLED=false
+      - MONGODB_URI=mongodb://root:lego@mongo:27017/legodb?authSource=admin
+      - BLOB_STORAGE_TYPE=local
+      - CACHE_ENABLED=true
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+    depends_on:
+      - mongo
+      - redis
+volumes:
+  mongodb_data:
+  redis_data:

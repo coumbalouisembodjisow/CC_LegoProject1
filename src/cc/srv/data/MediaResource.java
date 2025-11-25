@@ -1,35 +1,34 @@
 package cc.srv.data;
 
 import cc.srv.cache.CacheService;
-import cc.srv.storage.AzureBlobStorage;
-import com.azure.storage.blob.BlobClient;
-import com.azure.storage.blob.BlobContainerClient;
-import com.azure.storage.blob.models.BlobHttpHeaders;
 import jakarta.ws.rs.*;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
+import java.nio.file.Files;
+import java.nio.file.Paths ;
+import java.nio.file.StandardCopyOption;
 import java.util.*;
 import java.util.logging.Logger;
 
-/**
- * Resource for managing media files with Azure Blob Storage
- */
+
+
 @Path("/media")
 public class MediaResource {
     private static final Logger logger = Logger.getLogger(MediaResource.class.getName());
-    private BlobContainerClient blobContainerClient;
-
+    private final String UPLOAD_DIR = "/usr/local/tomcat/uploads";
+    private final String BASE_URL = System.getenv().getOrDefault("UPLOAD_BASE_URL", "http://localhost:8080/LegoProject-1.0/media");
     public MediaResource() {
         try {
-            AzureBlobStorage storage = AzureBlobStorage.getInstance();
-            this.blobContainerClient = storage.getBlobServiceClient()
-                    .getBlobContainerClient(storage.getContainerName());
-            logger.info("MediaResource with Azure Blob Storage initialized");
+           java.nio.file.Path  uploadPath = Paths.get(UPLOAD_DIR);
+            if (!Files.exists(uploadPath)) {
+                Files.createDirectories(uploadPath);
+            }
+            logger.info("MediaResource with Local Storage initialized. Upload dir: " + UPLOAD_DIR);
         } catch (Exception e) {
-            logger.severe("Azure Blob init failed: " + e.getMessage());
+           logger.severe("Local storage init failed: " + e.getMessage());
         }
     }
 
@@ -54,15 +53,12 @@ public String upload(
         String extension = getExtensionFromContentType(contentType);
         mediaId += extension;
 
-        // Upload vers Azure Blob Storage
-        BlobClient blobClient = blobContainerClient.getBlobClient(mediaId);
-        
-        BlobHttpHeaders headers = new BlobHttpHeaders().setContentType(contentType);
-        
-        blobClient.upload(new ByteArrayInputStream(contents), contents.length, true);
-        blobClient.setHttpHeaders(headers);
+        // Sauvegarder dans le volume local
+        java.nio.file.Path  filePath = Paths.get(UPLOAD_DIR, mediaId);
+        Files.copy(new ByteArrayInputStream(contents), filePath, StandardCopyOption.REPLACE_EXISTING);
 
-        logger.info("File uploaded to Azure: " + mediaId);
+
+        logger.info("File saved to local storage: " + mediaId);
 
         
         return mediaId;
@@ -117,27 +113,21 @@ private String getExtensionFromContentType(String contentType) {
             }
         }
             
-            BlobClient blobClient = blobContainerClient.getBlobClient(id);
-            
-            if (!blobClient.exists()) {
+
+             // Lire depuis le stockage local
+            java.nio.file.Path  filePath = Paths.get(UPLOAD_DIR, id);
+            if (!Files.exists(filePath)) {
                 return Response.status(404).entity("Media not found: " + id).build();
             }
 
-            // Lire depuis Azure Blob
-            ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
-            blobClient.downloadStream(outputStream);
-            byte[] contents = outputStream.toByteArray();
-
-            String contentType = blobClient.getProperties().getContentType();
-            if (contentType == null) {
-                contentType = determineContentType(id);
-            }
+            byte[] contents = Files.readAllBytes(filePath);
+            String contentType = determineContentType(id);
             // cache it
             if (cacheEnabled) {
                 CacheService.cacheMedia(id, contents, contentType);
-                logger.info("Media " + id + " served from Azure and CACHED");
+                logger.info("Media " + id + " served from local storage and CACHED");
             } else {
-                logger.info(" Media " + id + " served from Azure (no cache)");
+                logger.info(" Media " + id + " served from local storage(no cache)");
             }
             return Response.ok(contents)
                     .type(contentType)
@@ -161,8 +151,11 @@ private String getExtensionFromContentType(String contentType) {
         // ou comptons les blobs
         List<String> mediaList = new ArrayList<>();
         try {
-            for (com.azure.storage.blob.models.BlobItem blob : blobContainerClient.listBlobs()) {
-                mediaList.add(blob.getName());
+            java.nio.file.Path  uploadPath = Paths.get(UPLOAD_DIR);
+            if (Files.exists(uploadPath)) {
+                Files.list(uploadPath)
+                     .filter(Files::isRegularFile)
+                     .forEach(path -> mediaList.add(path.getFileName().toString()));
             }
         } catch (Exception e) {
             logger.warning("Cannot list blobs: " + e.getMessage());
@@ -178,11 +171,14 @@ private String getExtensionFromContentType(String contentType) {
     @Produces(MediaType.TEXT_PLAIN)
     public String test() {
         try {
-            int count = 0;
-            for (com.azure.storage.blob.models.BlobItem blob : blobContainerClient.listBlobs()) {
-                count++;
+            java.nio.file.Path  uploadPath = Paths.get(UPLOAD_DIR);
+            long count = 0;
+            if (Files.exists(uploadPath)) {
+                count = Files.list(uploadPath)
+                            .filter(Files::isRegularFile)
+                            .count();
             }
-            return "MediaResource with Azure Blob! Blobs count: " + count;
+            return "MediaResource with Local Storage! Files count: " + count + " in " + UPLOAD_DIR;
         } catch (Exception e) {
             return "MediaResource test error: " + e.getMessage();
         }

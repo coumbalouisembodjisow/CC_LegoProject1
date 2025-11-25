@@ -3,20 +3,18 @@ package cc.srv.data;
 import jakarta.ws.rs.*;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
-import cc.srv.db.CosmosDBLayer;
+import cc.srv.db.MongoDBLayer;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
 import java.util.UUID;
-import com.azure.cosmos.CosmosContainer;
-import com.azure.cosmos.models.CosmosQueryRequestOptions;
 import cc.srv.cache.CacheService;
 import java.util.Date;
 import java.util.stream.Collectors;
 
 @Path("/auction")
 public class AuctionResource {
-    private CosmosDBLayer dbLayer = CosmosDBLayer.getInstance();
+    private MongoDBLayer dbLayer = MongoDBLayer.getInstance();
 
     // ==================== GET ENDPOINTS ====================
 
@@ -58,10 +56,9 @@ public class AuctionResource {
                     return Response.ok(cachedAuction).build();
                 }}
             // if not in cache, get from database
-            Iterator<Auction> iterator = dbLayer.getAuctionById(id).iterator();
+            Auction auction = dbLayer.getAuctionById(id);
 
-            if (iterator.hasNext()) {
-                Auction auction = iterator.next();
+            if (auction != null) {
                 // cache it
                 if (cacheEnabled) {
                     CacheService.cacheAuction(auction);
@@ -84,13 +81,11 @@ public class AuctionResource {
 public Response getAuctionBids(@PathParam("id") String auctionId) {
     try {
         // Récupérer l'auction depuis la base de données
-        Iterator<Auction> iterator = dbLayer.getAuctionById(auctionId).iterator();
+        Auction auction = dbLayer.getAuctionById(auctionId);
         
-        if (!iterator.hasNext()) {
+        if ( auction == null) {
             return Response.status(404).entity("Auction not found").build();
         }
-        
-        Auction auction = iterator.next();
         
         // Retourner uniquement la liste des bids
         List<AuctionBid> bids = auction.getBids();
@@ -154,13 +149,11 @@ public Response getAuctionBids(@PathParam("id") String auctionId) {
 @Produces(MediaType.APPLICATION_JSON)
 public Response placeBid(@PathParam("id") String auctionId, AuctionBid bid) {
     try {
-        Iterator<Auction> iterator = dbLayer.getAuctionById(auctionId).iterator();
+        Auction auction = dbLayer.getAuctionById(auctionId);
         
-        if (!iterator.hasNext()) {
+        if (auction == null) {
             return Response.status(404).entity("Auction not found").build();
         }
-        
-        Auction auction = iterator.next();
        
         if (bid.getId() == null || bid.getId().trim().isEmpty()) {
             bid.setId(UUID.randomUUID().toString()); // Génération ID automatique
@@ -203,24 +196,17 @@ public Response placeBid(@PathParam("id") String auctionId, AuctionBid bid) {
                     System.out.println("Auctions for LegoSet " + legoSetId + " served from CACHE");
                     return Response.ok(cachedAuctions).build();
                 }}
-            CosmosContainer auctionContainer = dbLayer.getAuctionContainer();
-            String query = "SELECT * FROM c WHERE c.legoSetId = '" + legoSetId + "' ";
-            Iterator<Auction> auctionIterator = auctionContainer.queryItems(query, new CosmosQueryRequestOptions(), Auction.class).iterator();
-            
-            List<Auction> activeAuctions = new ArrayList<>();
-            while (auctionIterator.hasNext()) {
-                activeAuctions.add(auctionIterator.next());
-            }
+            List<Auction> auctions = dbLayer.getAuctionsByLegoSetId(legoSetId);
 
             // cache the result
             if (cacheEnabled) {
-            CacheService.cacheAuctionsByLegoSet(legoSetId, activeAuctions);
+            CacheService.cacheAuctionsByLegoSet(legoSetId, auctions);
             System.out.println("Auctions for LegoSet " + legoSetId + " served from DB and CACHED");
         } else {
             System.out.println(" Auctions for LegoSet " + legoSetId + " served from DB (no cache)");
         }
             
-            return Response.ok(activeAuctions).build();
+            return Response.ok(auctions).build();
             
         } catch (Exception e) {
             return Response.status(500).entity("Error retrieving active auctions: " + e.getMessage()).build();
@@ -240,15 +226,8 @@ public Response placeBid(@PathParam("id") String auctionId, AuctionBid bid) {
     @Path("/active")
     @Produces(MediaType.APPLICATION_JSON)
     public Response getActiveAuctions() {
-        try {
-            Iterator<Auction> auctionsIterator = dbLayer.getActiveAuctions().iterator();
-            List<Auction> auctionList = new ArrayList<>();
-            
-            while (auctionsIterator.hasNext()) {
-                Auction auction = auctionsIterator.next();
-                auctionList.add(auction);
-            }
-
+        try { 
+            List<Auction> auctionList = dbLayer.getActiveAuctions();
             return Response.ok(auctionList).build();
         } catch (Exception e) {
             return Response.status(500).entity("Error retrieving active auctions: " + e.getMessage()).build();
@@ -277,10 +256,7 @@ public Response getRecentAuctions(@QueryParam("st") int start,
             }
         }
         
-        String query = "SELECT * FROM c ORDER BY c.startDate DESC OFFSET " + start + " LIMIT " + limit;
-        Iterator<Auction> recentAuctions = dbLayer.getAuctionContainer()
-            .queryItems(query, new CosmosQueryRequestOptions(), Auction.class)
-            .iterator();
+        Iterator<Auction> recentAuctions = dbLayer.getRecentAuctions(start, limit);
         
         List<Auction> recentAuctionList = new ArrayList<>();
         while (recentAuctions.hasNext()) {

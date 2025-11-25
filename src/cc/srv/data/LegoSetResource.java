@@ -3,7 +3,7 @@ package cc.srv.data;
 import jakarta.ws.rs.*;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
-import cc.srv.db.CosmosDBLayer;
+import cc.srv.db.MongoDBLayer;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
@@ -11,16 +11,11 @@ import java.util.Arrays;
 import java.util.UUID;
 import cc.srv.cache.CacheService;
 import java.util.stream.Collectors;
-import com.azure.cosmos.models.SqlParameter;
-import com.azure.cosmos.models.SqlQuerySpec;
-import com.azure.cosmos.models.CosmosQueryRequestOptions;
 
-
-import com.azure.cosmos.models.CosmosQueryRequestOptions;
 
 @Path("/legoset")
 public class LegoSetResource {
-    private CosmosDBLayer dbLayer = CosmosDBLayer.getInstance();
+    private MongoDBLayer dbLayer = MongoDBLayer.getInstance();
 
 
     
@@ -44,8 +39,8 @@ public class LegoSetResource {
             }
 
             // check for existing LegoSet with same ID
-            Iterator<LegoSet> existing = dbLayer.getLegoSetById(legoSet.getId()).iterator();
-            if (existing.hasNext()) {
+            LegoSet existing = dbLayer.getLegoSetById(legoSet.getId());
+            if (existing != null) {
                 return Response.status(409).entity("LegoSet already exists with ID: " + legoSet.getId()).build();
             }
 
@@ -98,10 +93,9 @@ public class LegoSetResource {
                     System.out.println("LegoSet " + id + " served from CACHE");
                     return Response.ok(cachedLegoSet).build();}}
                    
-            Iterator<LegoSet> iterator = dbLayer.getLegoSetById(id).iterator();
+            LegoSet legoSet = dbLayer.getLegoSetById(id);
 
-            if (iterator.hasNext()) {
-                LegoSet legoSet = iterator.next();
+            if (legoSet != null) {
                 // cache it
                 if (cacheEnabled) {
                     CacheService.cacheLegoSet(legoSet);
@@ -170,7 +164,7 @@ public class LegoSetResource {
     @Produces(MediaType.TEXT_PLAIN)
     public String countLegoSets() {
         try {
-            int count = dbLayer.countLegoSets();
+            long count = dbLayer.countLegoSets();
             return "Total LegoSets: " + count;
         } catch (Exception e) {
             return "Error counting LegoSets: " + e.getMessage();
@@ -198,8 +192,8 @@ public class LegoSetResource {
             
 
             // check that the LegoSet exists
-            Iterator<LegoSet> legoSetIterator = dbLayer.getLegoSetById(legoSetId).iterator();
-            if (!legoSetIterator.hasNext()) {
+           LegoSet legoSet = dbLayer.getLegoSetById(legoSetId);
+            if (legoSet == null) {
                 return Response.status(404).entity("LegoSet not found with ID: " + legoSetId).build();
             }
 
@@ -225,19 +219,11 @@ public Response getComments(
         @QueryParam("len") @DefaultValue("20") int length) {
     try {
         // Check that the LegoSet exists
-        Iterator<LegoSet> legoSetIterator = dbLayer.getLegoSetById(legoSetId).iterator();
-        if (!legoSetIterator.hasNext()) {
+       LegoSet legoSet = dbLayer.getLegoSetById(legoSetId);
+        if (legoSet == null) {
             return Response.status(404).entity("LegoSet not found with ID: " + legoSetId).build();
         }
-
-        // Retrieve comments with pagination
-        String query = "SELECT * FROM c WHERE c.legoSetId = @legoSetId OFFSET " + start + " LIMIT " + length;
-        List<SqlParameter> params = Arrays.asList(new SqlParameter("@legoSetId", legoSetId));
-        
-        Iterator<Comment> commentsIterator = dbLayer.getCommentContainer()
-            .queryItems(new SqlQuerySpec(query, params), new CosmosQueryRequestOptions(), Comment.class)
-            .iterator();
-        
+        Iterator<Comment> commentsIterator = dbLayer.getCommentsByLegoSetId(legoSetId).iterator();
         List<Comment> comments = new ArrayList<>();
         while (commentsIterator.hasNext()) {
             comments.add(commentsIterator.next());
@@ -272,13 +258,8 @@ public Response getRecentLegoSets(@QueryParam("st") int start,
                     .collect(Collectors.toList());
                 return Response.ok(limitedSets).build();
             }
-        }
-        
-        // Requête Cosmos DB avec la limite dynamique
-        String query = "SELECT * FROM c ORDER BY c.createdAt DESC OFFSET " + start + " LIMIT " + limit;
-        Iterator<LegoSet> recentLegoSets = dbLayer.getLegoSetContainer()
-            .queryItems(query, new CosmosQueryRequestOptions(), LegoSet.class)
-            .iterator();
+        }   
+        Iterator<LegoSet> recentLegoSets = dbLayer.getRecentLegoSets(start, length);
         
         List<LegoSet> recentSets = new ArrayList<>();
         while (recentLegoSets.hasNext()) {
@@ -308,11 +289,13 @@ public Response getMostLikedLegoSets(
     
     try {
         // Récupérer les LegoSets avec les meilleurs scores
-        Iterator<LegoSet> results = dbLayer.getMostLikedLegoSets(limit);
+        List<LegoSet> results = dbLayer.getMostLikedLegoSets(limit);
         List<LegoSet> mostLiked = new ArrayList<>();
         
-        while (results.hasNext()) {
-            mostLiked.add(results.next());
+        while (results != null ) {
+        for (LegoSet legoSet : results) {  
+            mostLiked.add(legoSet);
+        }
         }
         
         return Response.ok(mostLiked).build();
