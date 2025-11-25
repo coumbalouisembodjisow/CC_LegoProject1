@@ -1,0 +1,59 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: lego-app
+spec:
+  replicas: 3 
+  selector:
+    matchLabels:
+      app: lego-app
+  template:
+    metadata:
+      labels:
+        app: lego-app
+    spec:
+      containers:
+      - name: lego-app
+        image: louise6/lego-app:latest 
+        ports:
+        - containerPort: 8080 
+       
+        volumeMounts:
+        - name: media-storage
+          mountPath: /usr/local/tomcat/uploads
+       
+        env:
+        # Configuration MongoDB
+        - name: MONGODB_URI
+          value: "mongodb://root:lego@mongo-service:27017/legodb?authSource=admin"
+        # Configuration Redis
+        - name: REDIS_HOST
+          value: "redis-service"
+        - name: REDIS_PORT
+          value: "6379"
+        - name: CACHE_ENABLED
+          value: "true"
+       
+        - name: BLOB_STORAGE_TYPE
+          value: "local"
+        - name: FILE_STORAGE_PATH
+          value: "/usr/local/tomcat/uploads"
+        - name: UPLOAD_BASE_URL
+          value: "http://lego-service/uploads"
+    
+      volumes:
+      - name: media-storage
+        persistentVolumeClaim:
+          claimName: media-pvc 
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: lego-service
+spec:
+  type: LoadBalancer
+  selector:
+    app: lego-app
+  ports:
+  - port: 80
+    targetPort: 8080  
