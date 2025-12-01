@@ -1,136 +1,162 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
-
-    <modelVersion>4.0.0</modelVersion>
-    <groupId>pt.unl.fct.di.cc</groupId>
-    <artifactId>LegoProject</artifactId>
-    <version>1.0</version>
-    <packaging>war</packaging>
-
-    <properties>
-        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-        <authors>XXXXX-YYYYY-ZZZZZa</authors>
-        <functionAppName>lego-app-function</functionAppName>
-        <functionAppRegion>francecentral</functionAppRegion>
-        <functionResourceGroup>lego-project-rg</functionResourceGroup>
-        <jackson.version>2.16.1</jackson.version>
-    </properties>
-
-    <dependencies>
-        <!-- Dépendances pour l'API Jakarta et Jackson -->
-        <dependency>
-            <groupId>jakarta.ws.rs</groupId>
-            <artifactId>jakarta.ws.rs-api</artifactId>
-            <version>4.0.0</version>
-        </dependency>
-        <dependency>
-            <groupId>com.fasterxml.jackson.core</groupId>
-            <artifactId>jackson-annotations</artifactId>
-            <version>${jackson.version}</version>
-        </dependency>
-        <dependency>
-            <groupId>com.fasterxml.jackson.core</groupId>
-            <artifactId>jackson-databind</artifactId>
-            <version>${jackson.version}</version>
-        </dependency>
-        <dependency>
-            <groupId>com.fasterxml.jackson.jaxrs</groupId>
-            <artifactId>jackson-jaxrs-json-provider</artifactId>
-            <version>${jackson.version}</version>
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">  
+    <modelVersion>4.0.0</modelVersion>  
+    <groupId>pt.unl.fct.di.cc</groupId>  
+    <artifactId>LegoProject</artifactId>  
+    <version>1.0</version>  
+    <packaging>war</packaging>  
+    <properties> 
+        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>  
+        <authors>XXXXX-YYYYY-ZZZZZa</authors> 
+    </properties>  
+    <dependencies> 
+        <dependency> 
+            <groupId>jakarta.ws.rs</groupId>  
+            <artifactId>jakarta.ws.rs-api</artifactId>  
+            <version>4.0.0</version> 
+        </dependency>  
+        <dependency> 
+            <groupId>com.fasterxml.jackson.core</groupId>  
+            <artifactId>jackson-annotations</artifactId>  
+            <version>2.20</version> 
         </dependency>
         <dependency>
             <groupId>com.fasterxml.jackson.core</groupId>
             <artifactId>jackson-core</artifactId>
-            <version>${jackson.version}</version>
-        </dependency>
-
-        <!-- Dépendances RestEasy -->
-        <dependency>
-            <groupId>org.jboss.resteasy</groupId>
-            <artifactId>resteasy-core</artifactId>
-            <version>6.2.12.Final</version>
-        </dependency>
-        <dependency>
-            <groupId>org.jboss.resteasy</groupId>
-            <artifactId>resteasy-jaxb-provider</artifactId>
-            <version>6.2.12.Final</version>
-        </dependency>
-        <dependency>
+            <version>2.25.1</version>
+            </dependency>
+            <dependency>
             <groupId>org.jboss.resteasy</groupId>
             <artifactId>resteasy-jackson2-provider</artifactId>
             <version>6.2.12.Final</version>
         </dependency>
         <dependency>
-            <groupId>org.jboss.resteasy</groupId>
-            <artifactId>resteasy-servlet-initializer</artifactId>
-            <version>6.2.12.Final</version>
+            <groupId>com.fasterxml.jackson.core</groupId>
+            <artifactId>jackson-databind</artifactId>
+            <version>2.20.0</version>
         </dependency>
-
-        <!-- Dépendances Azure -->
+        <dependency>
+            <groupId>com.fasterxml.jackson.jaxrs</groupId>
+            <artifactId>jackson-jaxrs-json-provider</artifactId>
+            <version>2.20.0</version>
+        </dependency>
+        <dependency>
+            <groupId>com.fasterxml.jackson.core</groupId>
+            <artifactId>jackson-core</artifactId>
+            <version>2.20.0</version>
+        </dependency>
+        <dependency> 
+            <groupId>org.jboss.resteasy</groupId>  
+            <artifactId>resteasy-core</artifactId>  
+            <version>6.2.12.Final</version> 
+        </dependency>  
+        <dependency>
+            <groupId>org.jboss.resteasy</groupId>  
+            <artifactId>resteasy-jaxb-provider</artifactId>  
+            <version>6.2.12.Final</version> 
+        </dependency>  
+        <dependency> 
+            <groupId>org.jboss.resteasy</groupId>  
+            <artifactId>resteasy-jackson2-provider</artifactId>  
+            <version>6.2.12.Final</version> 
+        </dependency>  
+        <dependency> 
+            <groupId>org.jboss.resteasy</groupId>  
+            <artifactId>resteasy-servlet-initializer</artifactId>  
+            <version>6.2.12.Final</version> 
+        </dependency> 
         <dependency>
             <groupId>com.azure</groupId>
             <artifactId>azure-cosmos</artifactId>
             <version>4.74.0</version>
         </dependency>
         <dependency>
-            <groupId>com.azure</groupId>
-            <artifactId>azure-storage-blob</artifactId>
-            <version>12.31.2</version>
-        </dependency>
-
-        <!-- Dépendances pour les Azure Functions -->
-        <dependency>
-            <groupId>com.microsoft.azure.functions</groupId>
-            <artifactId>azure-functions-java-library</artifactId>
-            <version>3.2.0</version>
+            <groupId>org.apache.commons</groupId>
+            <artifactId>commons-lang3</artifactId>
+            <version>3.18.0</version>
         </dependency>
         <dependency>
-            <groupId>org.glassfish.jersey.media</groupId>
-            <artifactId>jersey-media-json-binding</artifactId>
-            <version>3.1.2</version>
+            <groupId>org.slf4j</groupId>
+            <artifactId>slf4j-simple</artifactId>
+            <version>2.0.17</version>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.logging.log4j</groupId>
+            <artifactId>log4j-core</artifactId>
+            <version>2.25.1</version>
         </dependency>
         <dependency>
             <groupId>redis.clients</groupId>
             <artifactId>jedis</artifactId>
             <version>6.2.0</version>
         </dependency>
-    </dependencies>
-
-    <build>
-        <sourceDirectory>src</sourceDirectory>
-        <plugins>
-            <!-- Plugin pour la compilation -->
-            <plugin>
-                <artifactId>maven-compiler-plugin</artifactId>
-                <version>3.14.0</version>
+        <dependency>
+			<groupId>com.azure</groupId>
+			<artifactId>azure-ai-textanalytics</artifactId>
+			<version>5.2.0</version>
+		</dependency>
+        <dependency>
+            <groupId>com.fasterxml.jackson.core</groupId>
+            <artifactId>jackson-core</artifactId>
+            <version>2.20.0</version>
+        </dependency>
+        <dependency>
+            <groupId>com.fasterxml.jackson.core</groupId>
+            <artifactId>jackson-databind</artifactId>
+            <version>2.20.0</version>
+        </dependency>
+        <dependency>
+            <groupId>com.azure</groupId>
+            <artifactId>azure-storage-blob</artifactId>
+            <version>12.31.2</version>
+        </dependency>
+         <!-- MongoDB  -->
+        <dependency>
+            <groupId>org.mongodb</groupId>
+            <artifactId>mongodb-driver-sync</artifactId>
+            <version>4.11.1</version>
+        </dependency>
+        
+        <dependency>
+            <groupId>org.mongodb</groupId>
+            <artifactId>bson</artifactId>
+            <version>4.11.1</version>
+        </dependency>
+        <!-- Azure Functions (necessaire pour la compilation) -->
+        <dependency>
+            <groupId>com.microsoft.azure.functions</groupId>
+            <artifactId>azure-functions-java-library</artifactId>
+            <version>3.2.0</version>
+            <scope>provided</scope>
+        </dependency>
+    </dependencies>  
+    <build> 
+        <sourceDirectory>src</sourceDirectory>  
+        <plugins> 
+            <plugin> 
+                <artifactId>maven-compiler-plugin</artifactId>  
+                <version>3.14.0</version>  
+                <configuration> 
+                    <source>21</source>  
+                    <release>21</release> 
+                </configuration> 
+            </plugin>  
+            <plugin> 
+                <artifactId>maven-war-plugin</artifactId>  
+                <version>3.4.0</version>  
+                <configuration> 
+                    <warSourceDirectory>WebContent</warSourceDirectory> 
+                </configuration> 
+            </plugin>  
+            <plugin> 
+                <groupId>com.microsoft.azure</groupId>  
+                <artifactId>azure-webapp-maven-plugin</artifactId>  
+                <version>2.14.1</version>
                 <configuration>
-                    <source>21</source>
-                    <target>21</target>
-                </configuration>
-            </plugin>
-
-            <!-- Plugin pour déployer l'application Web -->
-            <plugin>
-                <artifactId>maven-war-plugin</artifactId>
-                <version>3.4.0</version>
-                <configuration>
-                    <warSourceDirectory>WebContent</warSourceDirectory>
-                </configuration>
-            </plugin>
-
-            <!-- Plugin pour Azure Web App -->
-            <plugin>
-                <groupId>com.microsoft.azure</groupId>
-                <artifactId>azure-webapp-maven-plugin</artifactId>
-                <version>2.10.0</version>
-                <configuration>
-                    <schemaVersion>V2</schemaVersion>
-                    <resourceGroup>lego-project-rg</resourceGroup>
-                    <appName>legoBackendApp</appName>
-                    <pricingTier>F1</pricingTier>
+                    <pricingTier>B1</pricingTier>
                     <region>francecentral</region>
                     <runtime>
-                        <os>Linux</os>
+                        <os>linux</os>
                         <javaVersion>Java 21</javaVersion>
                         <webContainer>Tomcat 10.1</webContainer>
                     </runtime>
@@ -144,77 +170,10 @@
                             </resource>
                         </resources>
                     </deployment>
+                    <resourceGroup>lego-project-rg</resourceGroup>
+                    <appName>legoBackendApp</appName>
                 </configuration>
-            </plugin>
-
-           
-        </plugins>
-    </build>
-
-    <profiles>
-        <!-- Profil pour Azure Functions -->
-        <profile>
-            <id>function-app</id>
-            <build>
-                <plugins>
-                    <plugin>
-                        <groupId>com.microsoft.azure</groupId>
-                        <artifactId>azure-functions-maven-plugin</artifactId>
-                        <version>1.39.0</version>
-                        <configuration>
-                            <appName>${functionAppName}</appName>
-                            <resourceGroup>${functionResourceGroup}</resourceGroup>
-                            <region>${functionAppRegion}</region>
-                            <pricingTier>B2</pricingTier>
-                            <disableAppInsights>false</disableAppInsights>
-                            <runtime>
-                                <os>linux</os>
-                                <javaVersion>21</javaVersion>
-                            </runtime>
-                            <appSettings>
-                                <property>
-                                    <name>FUNCTIONS_EXTENSION_VERSION</name>
-                                    <value>~4</value>
-                                </property>
-                            </appSettings>
-                        </configuration>
-                        <executions>
-                            <execution>
-                                <id>package-functions</id>
-                                <goals>
-                                    <goal>package</goal>
-                                </goals>
-                            </execution>
-                        </executions>
-                    </plugin>
-
-                    <!-- Plugin pour nettoyer les fichiers obj -->
-                    <plugin>
-                        <artifactId>maven-clean-plugin</artifactId>
-                        <version>3.5.0</version>
-                        <configuration>
-                            <filesets>
-                                <fileset>
-                                    <directory>obj</directory>
-                                </fileset>
-                            </filesets>
-                        </configuration>
-                    </plugin>
-
-                    <!-- Désactiver le plugin maven-war-plugin pour ce profil -->
-                    <plugin>
-                        <artifactId>maven-war-plugin</artifactId>
-                        <inherited>false</inherited>
-                    </plugin>
-                </plugins>
-            </build>
-            <dependencies>
-                <dependency>
-                    <groupId>org.apache.commons</groupId>
-                    <artifactId>commons-lang3</artifactId>
-                    <version>3.19.0</version>
-                </dependency>
-            </dependencies>
-        </profile>
-    </profiles>
+            </plugin> 
+        </plugins> 
+    </build> 
 </project>

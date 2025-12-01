@@ -1,5 +1,5 @@
 config:
-  target: 'https://legobackendapp.azurewebsites.net/rest'
+  target: 'http://4.251.133.226/LegoProject-1.0/rest'
   http:
     timeout: 30
   plugins:
@@ -72,7 +72,7 @@ scenarios:
                 Accept: application/json
               json:
                 ownedLegoSets: ["{{ lsId }}"]
-              #afterResponse: "logResponseDetails"
+              afterResponse: "logResponseDetails"
           whileTrue: "randomLoop90"
         - loop:                            # let's create random comments - loop ... whileTrue90
           - function: "genProductComment"   # generate a comment for the product
@@ -93,6 +93,7 @@ scenarios:
                 legoSetId: "{{ lsId }}"
                 userId: "{{ uId }}"
                 content: "{{ cmtText }}"
+              afterResponse: "logResponseDetails"
           whileTrue: "randomLoop90"
         - loop:                 # let's create random auctions - loop ... whileTrue70
           - function: "genNewOldAuction"   # generate a auction for the product

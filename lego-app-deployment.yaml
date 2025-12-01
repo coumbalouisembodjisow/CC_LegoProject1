@@ -26,6 +26,8 @@ spec:
         # Configuration MongoDB
         - name: MONGODB_URI
           value: "mongodb://root:lego@mongo-service:27017/legodb?authSource=admin"
+        - name: MONGODB_DB
+          value: "legodb"
         # Configuration Redis
         - name: REDIS_HOST
           value: "redis-service"
@@ -40,6 +42,7 @@ spec:
           value: "/usr/local/tomcat/uploads"
         - name: UPLOAD_BASE_URL
           value: "http://lego-service/uploads"
+
     
       volumes:
       - name: media-storage

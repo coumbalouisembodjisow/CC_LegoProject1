@@ -53,11 +53,36 @@ public class MongoDBLayer {
         if (db != null)
             return;
         db = client.getDatabase(DB_NAME);
-        users = db.getCollection("Users");
-        auctions = db.getCollection("Auctions");
-        legosets = db.getCollection("LegoSets");
-        comments = db.getCollection("Comments");
+         // Créer les collections si elles n'existent pas
+    if (!collectionExists("Users")) {
+        db.createCollection("Users");
     }
+    users = db.getCollection("Users");
+    
+    if (!collectionExists("Auctions")) {
+        db.createCollection("Auctions");
+    }
+    auctions = db.getCollection("Auctions");
+    
+    if (!collectionExists("LegoSets")) {
+        db.createCollection("LegoSets");
+    }
+    legosets = db.getCollection("LegoSets");
+    
+    if (!collectionExists("Comments")) {
+        db.createCollection("Comments");
+    }
+    comments = db.getCollection("Comments");
+    }
+
+    private boolean collectionExists(String collectionName) {
+        for (String name : db.listCollectionNames()) {
+            if (name.equals(collectionName)) {
+                return true;
+            }
+        }
+        return false;
+}
 
     // --------------------- User methods ------------------- //
     
@@ -517,16 +542,22 @@ public Iterator<Auction> getRecentAuctions(int start, int limit) {
         return auction;
     }
     
-    private LegoSet documentToLegoSet(Document doc) {
-        if (doc == null) return null;
-        LegoSet legoSet = new LegoSet();
-        legoSet.setId(doc.getString("_id"));
-        legoSet.setName(doc.getString("name"));
-        legoSet.setDescription(doc.getString("description"));
-        legoSet.addPhotoMediaId(doc.getString("photoMediaIds"));
-        legoSet.setCreatedAt(doc.getDate("createdAt"));
-        return legoSet;
-    }
+  private LegoSet documentToLegoSet(Document doc) {
+    if (doc == null) return null;
+    LegoSet legoSet = new LegoSet();
+    legoSet.setId(doc.getString("_id"));
+    legoSet.setName(doc.getString("name"));
+    legoSet.setDescription(doc.getString("description"));
+    
+    List<String> photoMediaIds = doc.getList("photoMediaIds", String.class);
+    if (photoMediaIds != null) {
+        legoSet.setPhotoUrls(photoMediaIds);  
+    
+    
+}
+    legoSet.setCreatedAt(doc.getDate("createdAt"));
+    return legoSet;
+  }
     
     private Comment documentToComment(Document doc) {
         if (doc == null) return null;

@@ -11,6 +11,8 @@ import java.util.Arrays;
 import java.util.UUID;
 import cc.srv.cache.CacheService;
 import java.util.stream.Collectors;
+import java.util.Map;
+import java.util.HashMap;
 
 
 @Path("/legoset")
@@ -305,4 +307,45 @@ public Response getMostLikedLegoSets(
     }
 }
 
+@GET
+@Path("/debug/database")
+@Produces(MediaType.APPLICATION_JSON)
+public Response debugDatabase() {
+    try {
+        Map<String, Object> debug = new HashMap<>();
+        
+        // 1. Informations de connexion
+        debug.put("MONGODB_URI", System.getenv("MONGODB_URI"));
+        debug.put("MONGODB_DB", System.getenv("MONGODB_DB"));
+        debug.put("dbLayer_hash", dbLayer.hashCode());
+        
+        // 2. Comptes depuis MongoDB
+        debug.put("legoSets_count_db", dbLayer.countLegoSets());
+        debug.put("users_count_db", dbLayer.countUsers());
+        
+        // 3. Test de récupération spécifique
+        LegoSet specificSet = dbLayer.getLegoSetById("3c4e142a-d72e-4eed-8e61-2c97bc0f0b40");
+        debug.put("specific_lego_found", specificSet != null);
+        if (specificSet != null) {
+            debug.put("specific_lego_name", specificSet.getName());
+        }
+        
+        // 4. Liste de tous les LegoSets
+        List<String> allLegoIds = new ArrayList<>();
+        Iterator<LegoSet> allSets = dbLayer.getLegoSets().iterator();
+        int count = 0;
+        while (allSets.hasNext()) {
+            LegoSet set = allSets.next();
+            count++;
+            allLegoIds.add(set.getId());
+        }
+        debug.put("legoSets_from_iterator", count);
+        debug.put("legoSets_ids", allLegoIds);
+        
+        return Response.ok(debug).build();
+        
+    } catch (Exception e) {
+        return Response.status(500).entity("Error: " + e.getMessage()).build();
+    }
+}
 }

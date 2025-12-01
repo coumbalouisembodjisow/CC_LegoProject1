@@ -1,5 +1,5 @@
 config:
-  target: 'https://legobackendapp.azurewebsites.net/rest'
+  target: 'http://4.251.133.226/LegoProject-1.0/rest'
   http:
     timeout: 120
   plugins:
