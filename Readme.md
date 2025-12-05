@@ -127,5 +127,5 @@ The application is deployed within an AKS cluster and utilizes the following com
 ````
 ## Contributor
 Name                             Email                                                                          Number
-Coumba Louise Mbodji Sow     c.sow@campus.fct.unl.pt                                                              75921
+Coumba Louise Mbodji Sow     c.sow@campus.fct.unl.pt                                                              75291
                                         
