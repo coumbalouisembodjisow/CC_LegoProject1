@@ -41,6 +41,8 @@ services:
     restart: always
     ports:
       - "8080:8080"
+    volumes:
+      - ./media-uploads:/usr/local/tomcat/uploads
     environment:
       - SPRING_PROFILES_ACTIVE=dev
       - CACHE_ENABLED=false
@@ -49,6 +51,9 @@ services:
       - CACHE_ENABLED=true
       - REDIS_HOST=redis
       - REDIS_PORT=6379
+      - BLOB_STORAGE_TYPE=local
+      - FILE_STORAGE_PATH=/usr/local/tomcat/uploads
+      - UPLOAD_BASE_URL=http://localhost:8080/LegoProject-1.0/media/
     depends_on:
       - mongo
       - redis

@@ -87,6 +87,44 @@ Note: You must rename the appropriate POM file to pom.xml before each deployment
  - garbageCollector - Cleans up old data (Timer trigger)
  - analyzeComment - Performs sentiment analysis on comments (HTTP trigger)
 
+
+
+## Migration to Azure Kubernetes
+The application is deployed within an AKS cluster and utilizes the following components:
+- Application Server: Deployed as a Kubernetes Deployment with multiple replicas.
+- Caching: The managed cache service is replaced by a local Redis container deployed within the cluster.
+- Media Storage: Azure Blob Storage is replaced by a Persistent Volume (PV/PVC) for storing media files.
+- Database :  CosmosDB is replaced by MongoDB  which is containerized within the cluster.
+
+### Deployment Files
+
+- Dockerfile: Build file for the application's Docker image.
+- lego-app-deployment.yaml
+- redis-deployment.yaml
+- mongo-deployment.yaml
+- persistent-volume-deployment.yaml
+
+###  AKS Deployment 
+#### Build and Push Image
+```bash
+   docker build -t <my_acr>/<app_image>:latest .
+   docker push <my_acr>/<app_image>:latest
+```
+#### Connect to AKS Cluster
+```bash
+   az aks get-credentials --resource-group <resource-group-name> --name <cluster-name>
+```
+### Deploy 
+```bash
+    kubectl apply -f mongo-deployment.yaml
+    kubectl apply -f redis-deployment.yaml
+    kubectl apply -f persistent-volume-deployment.yaml
+    kubectl apply -f lego-app-deployment.yaml
+```
+### Local deployment
+```` bash
+    docker-compose up -d
+````
 ## Contributor
 Name                             Email                                                                          Number
 Coumba Louise Mbodji Sow     c.sow@campus.fct.unl.pt                                                              75921
